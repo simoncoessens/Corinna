@@ -31,7 +31,7 @@ class DSARetriever:
         self.qdrant = QdrantClient(
             url=qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333"),
             api_key=qdrant_api_key or os.getenv("QDRANT_API_KEY") or None,
-            check_compatibility=False,  # Disable version check for Qdrant 1.7.0
+            check_compatibility=False,  # Disable version check (client 1.16.1, server 1.11.0)
         )
         self.openai = OpenAI(api_key=openai_api_key or os.getenv("OPENAI_API_KEY"))
 
@@ -135,8 +135,7 @@ class DSARetriever:
 
         search_filter = Filter(must=filter_conditions) if filter_conditions else None
 
-        # Use search method (compatible with Qdrant 1.7.0)
-        # Try query_points first (newer API), fallback to search (older API)
+        # Try query_points first (Qdrant 1.11.0+), fallback to search for compatibility
         try:
             response = self.qdrant.query_points(
                 collection_name=COLLECTION_NAME,
@@ -146,7 +145,7 @@ class DSARetriever:
             )
             results = response.points
         except (AttributeError, Exception):
-            # Fallback to search method for Qdrant 1.7.0
+            # Fallback to search method for older Qdrant versions
             results = self.qdrant.search(
                 collection_name=COLLECTION_NAME,
                 query_vector=query_embedding,
