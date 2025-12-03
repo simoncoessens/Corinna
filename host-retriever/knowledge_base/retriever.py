@@ -135,13 +135,24 @@ class DSARetriever:
 
         search_filter = Filter(must=filter_conditions) if filter_conditions else None
 
-        # Use query_points for newer qdrant-client versions
-        response = self.qdrant.query_points(
-            collection_name=COLLECTION_NAME,
-            query=query_embedding,
-            limit=limit,
-            query_filter=search_filter,
-        )
+        # Use search method (compatible with Qdrant 1.7.0)
+        # Try query_points first (newer API), fallback to search (older API)
+        try:
+            response = self.qdrant.query_points(
+                collection_name=COLLECTION_NAME,
+                query=query_embedding,
+                limit=limit,
+                query_filter=search_filter,
+            )
+            results = response.points
+        except (AttributeError, Exception):
+            # Fallback to search method for Qdrant 1.7.0
+            results = self.qdrant.search(
+                collection_name=COLLECTION_NAME,
+                query_vector=query_embedding,
+                limit=limit,
+                query_filter=search_filter,
+            )
 
         return [
             {
@@ -153,6 +164,6 @@ class DSARetriever:
                 "chunk_type": hit.payload.get("chunk_type", "") if isinstance(hit.payload, dict) else "",
                 "score": float(hit.score),
             }
-            for hit in response.points
+            for hit in results
         ]
 
