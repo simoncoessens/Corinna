@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: dsa-knowledge-base
+    runtime: docker
+    dockerfilePath: ./host-retriever/Dockerfile
+    dockerContext: ./host-retriever
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        value: http://localhost:6333

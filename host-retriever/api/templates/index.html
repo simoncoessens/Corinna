@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Knowledge Base</title>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --surface-hover: #242424;
+            --border: #2a2a2a;
+            --text: #e8e8e8;
+            --text-muted: #888;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        h1 {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-size: 2.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        
+        .search-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 0.875rem 1rem;
+            font-size: 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+        
+        button {
+            padding: 0.875rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: var(--accent-hover);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        
+        select, input[type="number"] {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            outline: none;
+        }
+        
+        select {
+            min-width: 160px;
+        }
+        
+        input[type="number"] {
+            width: 70px;
+        }
+        
+        .examples {
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .examples-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+        }
+        
+        .example-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .chip {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.8125rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .results-count {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .result-card:hover {
+            border-color: #3a3a3a;
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .result-title {
+            font-family: 'Source Serif 4', Georgia, serif;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .result-score {
+            flex-shrink: 0;
+            padding: 0.25rem 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--success);
+            border-radius: 4px;
+        }
+        
+        .result-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.875rem;
+        }
+        
+        .tag {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: var(--bg);
+            border-radius: 4px;
+            color: var(--text-muted);
+        }
+        
+        .tag.category {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent);
+        }
+        
+        .result-content {
+            font-size: 0.9375rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            max-height: 150px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .result-content::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, var(--surface));
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+        }
+        
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+        
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+        
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+        }
+        
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        @media (max-width: 640px) {
+            .search-box {
+                flex-direction: column;
+            }
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-group {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DSA Knowledge Base</h1>
+            <p class="subtitle">Search the Digital Services Act (Regulation EU 2022/2065)</p>
+        </header>
+        
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="query" placeholder="Search the DSA..." autofocus>
+                <button onclick="search()" id="searchBtn">Search</button>
+            </div>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="category">Category:</label>
+                    <select id="category">
+                        <option value="">All Categories</option>
+                        <option value="All Services">All Services</option>
+                        <option value="Intermediary Service">Intermediary Service</option>
+                        <option value="Hosting Service">Hosting Service</option>
+                        <option value="Online Platform">Online Platform</option>
+                        <option value="Online Marketplace">Online Marketplace</option>
+                        <option value="VLOP/VLOSE">VLOP/VLOSE</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="chunkType">Type:</label>
+                    <select id="chunkType">
+                        <option value="">All Types</option>
+                        <option value="article">Articles</option>
+                        <option value="recital">Recitals</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="limit">Results:</label>
+                    <input type="number" id="limit" value="5" min="1" max="20">
+                </div>
+            </div>
+            
+            <div class="examples">
+                <div class="examples-title">Example queries</div>
+                <div class="example-chips">
+                    <span class="chip" onclick="setQuery('transparency reporting obligations')">transparency reporting</span>
+                    <span class="chip" onclick="setQuery('notice and action mechanism')">notice and action</span>
+                    <span class="chip" onclick="setQuery('content moderation requirements')">content moderation</span>
+                    <span class="chip" onclick="setQuery('definition of online platform')">online platform definition</span>
+                    <span class="chip" onclick="setQuery('illegal content removal')">illegal content</span>
+                    <span class="chip" onclick="setQuery('recommender system transparency')">recommender systems</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="results"></div>
+        
+        <footer>
+            <p>Powered by vector search on the official <a href="https://eur-lex.europa.eu/eli/reg/2022/2065/oj/eng" target="_blank">DSA text</a></p>
+        </footer>
+    </div>
+    
+    <script>
+        const queryInput = document.getElementById('query');
+        const resultsDiv = document.getElementById('results');
+        
+        queryInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') search();
+        });
+        
+        function setQuery(text) {
+            queryInput.value = text;
+            search();
+        }
+        
+        async function search() {
+            const query = queryInput.value.trim();
+            if (!query) return;
+            
+            const category = document.getElementById('category').value;
+            const chunkType = document.getElementById('chunkType').value;
+            const limit = parseInt(document.getElementById('limit').value) || 5;
+            
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Searching...</p>
+                </div>
+            `;
+            
+            document.getElementById('searchBtn').disabled = true;
+            
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query,
+                        limit,
+                        category: category || null,
+                        chunk_type: chunkType || null
+                    })
+                });
+                
+                const data = await response.json();
+                renderResults(data);
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="empty-state">
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            } finally {
+                document.getElementById('searchBtn').disabled = false;
+            }
+        }
+        
+        function renderResults(data) {
+            if (!data.results || data.results.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <p>No results found for "${data.query}"</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const html = `
+                <div class="results-header">
+                    <span class="results-count">${data.count} result${data.count !== 1 ? 's' : ''} for "${data.query}"</span>
+                </div>
+                ${data.results.map(r => `
+                    <div class="result-card">
+                        <div class="result-header">
+                            <span class="result-title">${escapeHtml(r.title)}</span>
+                            <span class="result-score">${(r.score * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="result-meta">
+                            <span class="tag category">${escapeHtml(r.category)}</span>
+                            <span class="tag">${escapeHtml(r.section)}</span>
+                            <span class="tag">${escapeHtml(r.chunk_type)}</span>
+                        </div>
+                        <div class="result-content">${escapeHtml(r.content)}</div>
+                    </div>
+                `).join('')}
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+
