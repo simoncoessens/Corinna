@@ -31,6 +31,7 @@ class DSARetriever:
         self.qdrant = QdrantClient(
             url=qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333"),
             api_key=qdrant_api_key or os.getenv("QDRANT_API_KEY") or None,
+            check_compatibility=False,  # Disable version check for Qdrant 1.7.0
         )
         self.openai = OpenAI(api_key=openai_api_key or os.getenv("OPENAI_API_KEY"))
 

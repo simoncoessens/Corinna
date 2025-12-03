@@ -4,6 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./host-retriever/Dockerfile
     dockerContext: ./host-retriever
+    port: 8000
     envVars:
       - key: OPENAI_API_KEY
         sync: false

@@ -1,11 +1,12 @@
 #!/bin/bash
 set -e
 
-# Start Qdrant in background
+# Start Qdrant in background (bind to localhost only so Render doesn't detect it)
 echo "Starting Qdrant..."
 export QDRANT__STORAGE__STORAGE_PATH=/app/qdrant_storage
 export QDRANT__SERVICE__HTTP_PORT=6333
 export QDRANT__SERVICE__GRPC_PORT=6334
+export QDRANT__SERVICE__HOST=127.0.0.1
 qdrant > /tmp/qdrant.log 2>&1 &
 QDRANT_PID=$!
 echo "Qdrant started with PID $QDRANT_PID"
