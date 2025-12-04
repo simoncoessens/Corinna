@@ -1,0 +1,10 @@
+{
+  "dockerfile_lines": [],
+  "graphs": {
+    "Company Researcher": "./src/company_researcher/graph.py:company_researcher"
+  },
+  "python_version": "3.11",
+  "env": "./.env",
+  "dependencies": ["."]
+}
+
