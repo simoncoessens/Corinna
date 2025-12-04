@@ -10,3 +10,7 @@ services:
         sync: false
       - key: QDRANT_URL
         value: http://localhost:6333
+    disk:
+      name: qdrant-data
+      mountPath: /app/qdrant_storage
+      sizeGB: 1
