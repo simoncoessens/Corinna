@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: company-research-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    port: 8001
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false

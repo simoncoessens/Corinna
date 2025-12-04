@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deep-company-search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0c0c10;
+            --bg-secondary: #14141a;
+            --bg-card: #1c1c24;
+            --bg-elevated: #242430;
+            --accent: #6366f1;
+            --accent-light: #a5b4fc;
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #2e2e3a;
+            --success: #34d399;
+            --success-bg: rgba(52, 211, 153, 0.12);
+            --warning: #fbbf24;
+            --warning-bg: rgba(251, 191, 36, 0.12);
+            --error: #f87171;
+            --error-bg: rgba(248, 113, 113, 0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 100% 100% at 0% 0%, rgba(99, 102, 241, 0.08), transparent 50%),
+                radial-gradient(ellipse 80% 80% at 100% 100%, rgba(139, 92, 246, 0.06), transparent 50%),
+                radial-gradient(ellipse 50% 50% at 50% 0%, rgba(99, 102, 241, 0.04), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 1.5rem;
+        }
+
+        .logo {
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 2.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo span {
+            background: linear-gradient(135deg, var(--accent-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .search-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.625rem;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-btn {
+            padding: 0.875rem 1.75rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: inherit;
+            background: var(--accent);
+            border: none;
+            border-radius: 0.625rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-btn:hover:not(:disabled) {
+            background: #5855eb;
+            transform: translateY(-1px);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .search-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Status Panel */
+        .status-panel {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .status-panel.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .status-message {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-light));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .question-counter {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .counter-value {
+            font-weight: 600;
+            color: var(--accent-light);
+        }
+
+        /* Research Streams Grid */
+        .streams-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .research-block {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .research-block.active {
+            border-color: var(--accent);
+        }
+
+        .research-block-header {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .research-number {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-glow);
+            color: var(--accent-light);
+            border-radius: 50%;
+            font-size: 0.7rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .research-question {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .research-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        .research-status.thinking {
+            background: var(--accent-glow);
+            color: var(--accent-light);
+        }
+
+        .research-status.searching {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .research-status.complete {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .pulse-dot {
+            width: 5px;
+            height: 5px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: pulse 1s ease infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .research-content {
+            padding: 0.75rem 1rem;
+            max-height: 250px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 0.72rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .research-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .research-content::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        .research-content::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .cursor-blink {
+            display: inline-block;
+            width: 2px;
+            height: 1em;
+            background: var(--accent-light);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Results */
+        .results-container {
+            display: none;
+        }
+
+        .results-container.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .results-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .company-title {
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .results-meta {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .section-group {
+            margin-bottom: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-glow);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+        }
+
+        .section-count {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        .section-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .answer-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .answer-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: var(--bg-elevated);
+        }
+
+        .answer-question {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.625rem;
+        }
+
+        .answer-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            margin-bottom: 0.875rem;
+        }
+
+        .answer-footer {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .source-link {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .source-link svg {
+            width: 14px;
+            height: 14px;
+            opacity: 0.7;
+        }
+
+        .confidence-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 1rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .confidence-high {
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .confidence-medium {
+            background: var(--warning-bg);
+            color: var(--warning);
+        }
+
+        .confidence-low {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .confidence-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .expand-btn {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            margin-left: auto;
+            transition: color 0.2s;
+        }
+
+        .expand-btn:hover {
+            color: var(--accent-light);
+        }
+
+        .raw-research {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            font-family: 'JetBrains Mono', 'Monaco', monospace;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+        }
+
+        .raw-research.active {
+            display: block;
+        }
+
+        .error-banner {
+            display: none;
+            background: var(--error-bg);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: 0.75rem;
+            padding: 1rem 1.25rem;
+            color: var(--error);
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .error-banner.active {
+            display: block;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1rem 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        footer a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 1rem; }
+            .logo { font-size: 2rem; }
+            .search-form { flex-direction: column; }
+            .search-btn { width: 100%; justify-content: center; }
+            .stats-bar { gap: 1rem; }
+            .streams-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-mesh"></div>
+    
+    <div class="container">
+        <header>
+            <h1 class="logo">Deep-company-search</h1>
+            <p class="tagline">v0 testing version of the company research agent for DSA context</p>
+        </header>
+
+        <section class="search-box">
+            <form class="search-form" id="searchForm">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="companyInput" 
+                        placeholder="Enter company name (e.g., Spotify, TikTok, Amazon)"
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" class="search-btn" id="searchBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                    Research
+                </button>
+            </form>
+        </section>
+
+        <div class="error-banner" id="errorBanner"></div>
+
+        <section class="status-panel" id="statusPanel">
+            <div class="status-header">
+                <div class="spinner" id="spinner"></div>
+                <span class="status-title" id="statusTitle">Researching...</span>
+            </div>
+            <div class="status-message" id="statusMessage">Initializing research agents...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="question-counter" id="questionCounter" style="display: none;">
+                Researching question <span class="counter-value" id="questionNum">0</span> of <span id="totalQuestions">17</span>
+            </div>
+            <div class="streams-container" id="streamsContainer"></div>
+        </section>
+
+        <section class="results-container" id="resultsContainer">
+            <div class="results-header">
+                <h2 class="company-title" id="companyName"></h2>
+                <span class="results-meta" id="resultsMeta"></span>
+            </div>
+            <div class="stats-bar" id="statsBar"></div>
+            <div id="resultsContent"></div>
+        </section>
+
+        <footer>
+            Powered by <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> &amp; <a href="https://tavily.com" target="_blank">Tavily</a>
+        </footer>
+    </div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const input = document.getElementById('companyInput');
+        const btn = document.getElementById('searchBtn');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const progressFill = document.getElementById('progressFill');
+        const questionCounter = document.getElementById('questionCounter');
+        const questionNum = document.getElementById('questionNum');
+        const streamsContainer = document.getElementById('streamsContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const companyNameEl = document.getElementById('companyName');
+        const resultsMeta = document.getElementById('resultsMeta');
+        const statsBar = document.getElementById('statsBar');
+        const resultsContent = document.getElementById('resultsContent');
+        const errorBanner = document.getElementById('errorBanner');
+
+        const sectionIcons = {
+            'GEOGRAPHICAL SCOPE': '🌍',
+            'COMPANY SIZE': '📊',
+            'TYPE OF SERVICE PROVIDED': '🔧'
+        };
+
+        const TOTAL_QUESTIONS = 17;
+        let researchers = {};  // question -> {tokens, status}
+        let researcherOrder = [];
+        let resultData = null;  // Store result to prevent losing it
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const company = input.value.trim();
+            if (!company) return;
+
+            // Reset UI
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;"></div> Researching...';
+            statusPanel.classList.add('active');
+            resultsContainer.classList.remove('active');
+            errorBanner.classList.remove('active');
+            statusTitle.textContent = 'Researching...';
+            statusMessage.textContent = 'Starting research agents...';
+            progressFill.style.width = '0%';
+            questionCounter.style.display = 'none';
+            streamsContainer.innerHTML = '';
+            researchers = {};
+            researcherOrder = [];
+            resultData = null;
+
+            try {
+                const response = await fetch('/research/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company_name: company })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = ''; // Buffer to accumulate partial SSE events across chunks
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        // Process any remaining buffer content
+                        if (buffer.trim()) {
+                            const lines = buffer.split('\n');
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    processSSELine(line);
+                                }
+                            }
+                        }
+                        console.log('Stream ended. Result data:', resultData);
+                        // If we have results, make sure they're displayed
+                        if (resultData && !resultsContainer.classList.contains('active')) {
+                            console.log('Displaying results after stream end');
+                            displayResults(resultData);
+                        }
+                        break;
+                    }
+
+                    const text = decoder.decode(value, { stream: true });
+                    buffer += text;
+                    
+                    // Process complete SSE events (events end with \n\n)
+                    const events = buffer.split('\n\n');
+                    // Keep the last incomplete event in buffer
+                    buffer = events.pop() || '';
+                    
+                    for (const eventBlock of events) {
+                        const lines = eventBlock.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                processSSELine(line);
+                            }
+                        }
+                    }
+                }
+                
+                // Helper function to process a single SSE data line
+                function processSSELine(line) {
+                    try {
+                        const jsonStr = line.slice(6); // Remove 'data: ' prefix
+                        // Skip empty lines
+                        if (!jsonStr.trim()) return;
+                        
+                        const data = JSON.parse(jsonStr);
+                        console.log('Received event:', data.type);
+                        handleEvent(data);
+                    } catch (e) {
+                        // If it's a result event that failed, try to recover
+                        if (line.includes('"type": "result"') || line.includes('"type":"result"')) {
+                            console.error('Failed to parse result JSON, trying to extract manually');
+                            try {
+                                // Try to find the result data in the line - handle both formatted and minified JSON
+                                const resultMatch = line.match(/"data"\s*:\s*(\{.*)/);
+                                if (resultMatch) {
+                                    // Try to extract and parse the data object
+                                    let dataStr = resultMatch[1];
+                                    // Try to find the closing brace - count braces
+                                    let braceCount = 0;
+                                    let endIdx = -1;
+                                    for (let i = 0; i < dataStr.length; i++) {
+                                        if (dataStr[i] === '{') braceCount++;
+                                        if (dataStr[i] === '}') braceCount--;
+                                        if (braceCount === 0) {
+                                            endIdx = i + 1;
+                                            break;
+                                        }
+                                    }
+                                    if (endIdx > 0) {
+                                        dataStr = dataStr.substring(0, endIdx);
+                                        const dataObj = JSON.parse(dataStr);
+                                        handleEvent({ type: 'result', data: dataObj });
+                                        return;
+                                    }
+                                }
+                                console.error('Could not extract result data from malformed JSON');
+                                showError('Failed to parse server response. The result may be too large or corrupted.');
+                            } catch (e2) {
+                                console.error('Parse error (recovery failed):', e2, 'Line length:', line.length);
+                                // Log first and last parts to help debug
+                                console.error('Line start:', line.substring(0, 200));
+                                console.error('Line end:', line.substring(Math.max(0, line.length - 200)));
+                                showError('Failed to parse server response. The result may be too large.');
+                            }
+                        } else {
+                            console.error('Parse error:', e, 'Line preview:', line.substring(0, 200));
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Stream error:', err);
+                showError(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Research`;
+                // Don't hide results if we have them
+                if (!resultData && statusPanel.classList.contains('active')) {
+                    statusPanel.classList.remove('active');
+                }
+            }
+        });
+
+        function handleEvent(data) {
+            switch (data.type) {
+                case 'status':
+                    statusMessage.textContent = data.message;
+                    break;
+                
+                case 'question_start':
+                    questionCounter.style.display = 'flex';
+                    questionNum.textContent = data.count;
+                    progressFill.style.width = Math.min((data.count / TOTAL_QUESTIONS) * 100, 95) + '%';
+                    
+                    // Create new researcher block
+                    if (!researchers[data.question]) {
+                        researchers[data.question] = { tokens: '', status: 'thinking' };
+                        researcherOrder.push(data.question);
+                        createResearcherBlock(data.question, researcherOrder.length);
+                    }
+                    break;
+                
+                case 'token':
+                    // Route token to correct researcher based on question in event
+                    let tokenQuestion = data.question;
+                    
+                    // If we have a question and it exists in researchers, use it
+                    if (tokenQuestion && researchers[tokenQuestion]) {
+                        researchers[tokenQuestion].tokens += data.content;
+                        updateResearcherContent(tokenQuestion);
+                    } else if (tokenQuestion) {
+                        // Question not yet created - create a new block for it
+                        researchers[tokenQuestion] = { tokens: data.content, status: 'thinking' };
+                        researcherOrder.push(tokenQuestion);
+                        createResearcherBlock(tokenQuestion, researcherOrder.length);
+                        questionCounter.style.display = 'flex';
+                        questionNum.textContent = researcherOrder.length;
+                        progressFill.style.width = Math.min((researcherOrder.length / TOTAL_QUESTIONS) * 100, 95) + '%';
+                    } else {
+                        // No question in event - fall back to last researcher
+                        const lastQ = researcherOrder[researcherOrder.length - 1];
+                        if (lastQ && researchers[lastQ]) {
+                            researchers[lastQ].tokens += data.content;
+                            updateResearcherContent(lastQ);
+                        }
+                    }
+                    break;
+                
+                case 'tool':
+                    // Route tool events to correct researcher based on question
+                    let toolQuestion = data.question;
+                    // If no specific question, use last
+                    if (!toolQuestion || !researchers[toolQuestion]) {
+                        toolQuestion = researcherOrder[researcherOrder.length - 1];
+                    }
+                    
+                    if (data.status === 'start') {
+                        if (toolQuestion && researchers[toolQuestion]) {
+                            researchers[toolQuestion].status = 'searching';
+                            updateResearcherStatus(toolQuestion);
+                        }
+                    } else if (data.status === 'end') {
+                        if (toolQuestion && researchers[toolQuestion]) {
+                            researchers[toolQuestion].status = 'thinking';
+                            updateResearcherStatus(toolQuestion);
+                        }
+                    }
+                    break;
+                
+                case 'result':
+                    console.log('Received result:', data.data);
+                    if (!data.data) {
+                        console.error('Result event has no data!');
+                        showError('Received empty result');
+                        break;
+                    }
+                    resultData = data.data;
+                    progressFill.style.width = '100%';
+                    // Mark all as complete
+                    researcherOrder.forEach(q => {
+                        if (researchers[q]) {
+                            researchers[q].status = 'complete';
+                            updateResearcherStatus(q);
+                        }
+                    });
+                    // Show results immediately
+                    statusPanel.classList.remove('active');
+                    try {
+                        displayResults(resultData);
+                        console.log('Results displayed successfully');
+                    } catch (e) {
+                        console.error('Error displaying results:', e, e.stack);
+                        showError('Error displaying results: ' + e.message);
+                    }
+                    break;
+                
+                case 'error':
+                    showError(data.message);
+                    break;
+                
+                case 'done':
+                    // Only hide status panel if no results shown yet
+                    if (!resultData) {
+                        statusPanel.classList.remove('active');
+                    }
+                    break;
+            }
+        }
+
+        function createResearcherBlock(question, num) {
+            const blockId = `researcher-${num}`;
+            const html = `
+                <div class="research-block active" id="${blockId}">
+                    <div class="research-block-header">
+                        <span class="research-number">${num}</span>
+                        <span class="research-question" title="${escapeHtml(question)}">${escapeHtml(question)}</span>
+                        <span class="research-status thinking" id="${blockId}-status">
+                            <span class="pulse-dot"></span>
+                            Thinking
+                        </span>
+                    </div>
+                    <div class="research-content" id="${blockId}-content"><span class="cursor-blink"></span></div>
+                </div>
+            `;
+            streamsContainer.insertAdjacentHTML('beforeend', html);
+            
+            // Scroll the new block into view
+            const block = document.getElementById(blockId);
+            block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function updateResearcherContent(question) {
+            const idx = researcherOrder.indexOf(question) + 1;
+            const contentEl = document.getElementById(`researcher-${idx}-content`);
+            if (contentEl) {
+                const r = researchers[question];
+                // Show ALL tokens, no truncation
+                contentEl.innerHTML = escapeHtml(r.tokens) + '<span class="cursor-blink"></span>';
+                // Auto-scroll to bottom of this block
+                contentEl.scrollTop = contentEl.scrollHeight;
+            }
+        }
+
+        function updateResearcherStatus(question) {
+            const idx = researcherOrder.indexOf(question) + 1;
+            const statusEl = document.getElementById(`researcher-${idx}-status`);
+            const blockEl = document.getElementById(`researcher-${idx}`);
+            const contentEl = document.getElementById(`researcher-${idx}-content`);
+            
+            if (statusEl && blockEl) {
+                const r = researchers[question];
+                statusEl.className = `research-status ${r.status}`;
+                
+                if (r.status === 'thinking') {
+                    statusEl.innerHTML = '<span class="pulse-dot"></span> Thinking';
+                    blockEl.classList.add('active');
+                } else if (r.status === 'searching') {
+                    statusEl.innerHTML = '<span class="pulse-dot"></span> Searching';
+                    blockEl.classList.add('active');
+                } else if (r.status === 'complete') {
+                    statusEl.innerHTML = '✓ Complete';
+                    blockEl.classList.remove('active');
+                    // Remove cursor when complete
+                    if (contentEl) {
+                        contentEl.innerHTML = escapeHtml(r.tokens);
+                    }
+                }
+            }
+        }
+
+        function displayResults(data) {
+            if (!data) {
+                console.error('No data to display');
+                showError('No results received from server');
+                return;
+            }
+            
+            console.log('Displaying results for:', data.company_name);
+            resultsContainer.classList.add('active');
+            companyNameEl.textContent = data.company_name || 'Unknown Company';
+            
+            const date = data.generated_at ? new Date(data.generated_at) : new Date();
+            resultsMeta.textContent = date.toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+
+            const answers = data.answers || [];
+            const highConf = answers.filter(a => a.confidence?.toLowerCase().includes('high')).length;
+            const medConf = answers.filter(a => a.confidence?.toLowerCase().includes('medium')).length;
+            const lowConf = answers.filter(a => a.confidence?.toLowerCase().includes('low')).length;
+
+            statsBar.innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-value">${answers.length}</span>
+                    <span class="stat-label">Questions</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color: var(--success)">${highConf}</span>
+                    <span class="stat-label">High Confidence</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color: var(--warning)">${medConf}</span>
+                    <span class="stat-label">Medium</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" style="color: var(--error)">${lowConf}</span>
+                    <span class="stat-label">Low</span>
+                </div>
+            `;
+
+            const sections = {};
+            answers.forEach(answer => {
+                const section = answer.section || 'Other';
+                if (!sections[section]) sections[section] = [];
+                sections[section].push(answer);
+            });
+
+            resultsContent.innerHTML = '';
+            
+            for (const [section, sectionAnswers] of Object.entries(sections)) {
+                const icon = sectionIcons[section] || '📋';
+                const sectionHtml = `
+                    <div class="section-group">
+                        <div class="section-header">
+                            <div class="section-icon">${icon}</div>
+                            <span class="section-title">${escapeHtml(section)}</span>
+                            <span class="section-count">${sectionAnswers.length} items</span>
+                        </div>
+                        <div class="section-items">
+                            ${sectionAnswers.map((a, i) => renderAnswer(a, section.replace(/\s/g, '') + i)).join('')}
+                        </div>
+                    </div>
+                `;
+                resultsContent.innerHTML += sectionHtml;
+            }
+            
+            // Scroll results into view
+            resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderAnswer(answer, id) {
+            const confClass = getConfidenceClass(answer.confidence);
+            const hasRaw = answer.raw_research && answer.raw_research.length > 50;
+            
+            return `
+                <div class="answer-card">
+                    <div class="answer-question">${escapeHtml(answer.question)}</div>
+                    <div class="answer-text">${escapeHtml(answer.answer)}</div>
+                    <div class="answer-footer">
+                        <span class="source-link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                            ${escapeHtml(answer.source || 'Unknown')}
+                        </span>
+                        <span class="confidence-badge ${confClass}">
+                            <span class="confidence-dot"></span>
+                            ${escapeHtml(answer.confidence || 'Unknown')}
+                        </span>
+                        ${hasRaw ? `<button class="expand-btn" onclick="toggleRaw('${id}')">Show research</button>` : ''}
+                    </div>
+                    ${hasRaw ? `<div class="raw-research" id="raw-${id}">${escapeHtml(answer.raw_research)}</div>` : ''}
+                </div>
+            `;
+        }
+
+        function toggleRaw(id) {
+            const el = document.getElementById('raw-' + id);
+            const btn = el.previousElementSibling.querySelector('.expand-btn');
+            if (el.classList.contains('active')) {
+                el.classList.remove('active');
+                btn.textContent = 'Show research';
+            } else {
+                el.classList.add('active');
+                btn.textContent = 'Hide research';
+            }
+        }
+
+        function getConfidenceClass(confidence) {
+            const c = (confidence || '').toLowerCase();
+            if (c.includes('high')) return 'confidence-high';
+            if (c.includes('medium')) return 'confidence-medium';
+            return 'confidence-low';
+        }
+
+        function showError(message) {
+            errorBanner.textContent = `Error: ${message}`;
+            errorBanner.classList.add('active');
+            statusPanel.classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
