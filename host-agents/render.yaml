@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: snip-agents-host
+    runtime: docker
+    dockerfilePath: host-agents/Dockerfile
+    # Context must be root to access backend/
+    dockerContext: .
+    port: 8000
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
