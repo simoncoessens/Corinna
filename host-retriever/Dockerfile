@@ -14,22 +14,22 @@ RUN curl -L https://github.com/qdrant/qdrant/releases/download/v1.11.0/qdrant-x8
     chmod +x /usr/local/bin/qdrant
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY host-retriever/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy cached DSA HTML snapshot
-COPY dsa.html /app/dsa.html
-
 # Copy application code
-COPY api/ ./api/
-COPY knowledge_base/ ./knowledge_base/
+COPY host-retriever/api/ ./api/
+# Copy backend knowledge base package (includes dsa.html)
+COPY backend/knowledge_base/ ./backend/knowledge_base/
+# Create backend package init if it doesn't get copied (we only copied knowledge_base subdirectory)
+RUN touch backend/__init__.py
 
 # Create Qdrant storage directory
 RUN mkdir -p /app/qdrant_storage
 
 # Copy startup scripts
-COPY startup.py ./startup.py
-COPY start.sh ./start.sh
+COPY host-retriever/startup.py ./startup.py
+COPY host-retriever/start.sh ./start.sh
 RUN chmod +x /app/start.sh
 
 # Expose ports

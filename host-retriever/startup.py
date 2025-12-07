@@ -3,11 +3,11 @@ import os
 import sys
 from pathlib import Path
 
-# Add knowledge_base to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add repo root to path
+sys.path.append(str(Path(__file__).parent.parent))
 
-from knowledge_base.retriever import DSARetriever
-from knowledge_base.dsa_parser import download_dsa_html, parse_dsa_document
+from backend.knowledge_base import DSARetriever
+from backend.knowledge_base.dsa_parser import download_dsa_html, parse_dsa_document
 
 
 def ensure_knowledge_base_populated():

@@ -10,7 +10,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from knowledge_base import DSARetriever
+# Add repo root to path to allow importing backend
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
+from backend.knowledge_base import DSARetriever
 
 # Global retriever instance
 retriever: DSARetriever | None = None

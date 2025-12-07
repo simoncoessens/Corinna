@@ -2,8 +2,8 @@ services:
   - type: web
     name: dsa-knowledge-base
     runtime: docker
-    dockerfilePath: ./host-retriever/Dockerfile
-    dockerContext: ./host-retriever
+    dockerfilePath: host-retriever/Dockerfile
+    dockerContext: .
     port: 8000
     envVars:
       - key: OPENAI_API_KEY
