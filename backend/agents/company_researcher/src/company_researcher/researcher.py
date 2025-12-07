@@ -3,15 +3,46 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 from typing import List
 
-from langchain.chat_models import init_chat_model
+from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
 
 from company_researcher.configuration import Configuration
-from company_researcher.utils import get_api_key_for_model, tavily_search_tool
+from company_researcher.utils import get_api_key_for_model
+
+# Import Tavily tools from shared location
+import sys
+# Add backend/agents to path to import tools
+# __file__ = .../backend/agents/company_researcher/src/company_researcher/researcher.py
+# parents[3] = .../backend/agents
+agents_path = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(agents_path))
+from tools import tavily_search_tool
+
+
+# =============================================================================
+# Prompt Loading
+# =============================================================================
+
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(PROMPTS_DIR)),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
+
+
+def load_prompt(template_name: str, **kwargs) -> str:
+    """Load and render a Jinja2 prompt template."""
+    template = _jinja_env.get_template(template_name)
+    return template.render(**kwargs)
 
 
 # =============================================================================
@@ -54,23 +85,6 @@ def finish_research(summary: str) -> str:
 # Researcher Agent
 # =============================================================================
 
-RESEARCHER_SYSTEM_PROMPT = """You are a research agent investigating a company for DSA (Digital Services Act) compliance.
-
-Your task is to find specific, factual information to answer the research question.
-
-Available tools:
-- web_search: Search the web with multiple queries. Use specific queries including the company name.
-- finish_research: Call this when you have enough information to provide a complete answer.
-
-Research strategy:
-1. Start with a targeted search including the company name and key terms from the question.
-2. If results are insufficient, try alternative search queries.
-3. Once you have concrete facts, call finish_research with your summary.
-
-Be concise and factual. Include specific numbers, dates, or sources when available.
-Maximum 3 search iterations - then you must call finish_research."""
-
-
 async def run_researcher(
     question: str,
     company_name: str,
@@ -83,33 +97,43 @@ async def run_researcher(
     """
     cfg = Configuration.from_runnable_config(config) if config else Configuration()
     
-    # Set up model with tools
-    model_config = {
-        "model": cfg.research_model,
-        "max_tokens": cfg.research_model_max_tokens,
-        "api_key": get_api_key_for_model(cfg.research_model, config),
-    }
+    # Extract model name (remove "openai:" prefix if present)
+    model_name = cfg.research_model.replace("openai:", "") if cfg.research_model.startswith("openai:") else cfg.research_model
     
-    model = init_chat_model(
-        model=cfg.research_model,
-        max_tokens=cfg.research_model_max_tokens,
-        api_key=get_api_key_for_model(cfg.research_model, config),
-    )
+    # Get API credentials
+    api_key = get_api_key_for_model(cfg.research_model, config)
+    base_url = None
+    if config:
+        api_keys = config.get("configurable", {}).get("apiKeys", {})
+        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    else:
+        base_url = os.getenv("OPENAI_BASE_URL")
+    
+    # Set up model with tools
+    model_params = {
+        "model": model_name,
+        "max_tokens": cfg.research_model_max_tokens,
+    }
+    if api_key:
+        model_params["api_key"] = api_key
+    if base_url:
+        model_params["base_url"] = base_url
+    
+    model = ChatOpenAI(**model_params)
     
     tools = [web_search, finish_research]
     model_with_tools = model.bind_tools(tools)
-    tools_by_name = {t.name: t for t in tools}
     
-    # Initial message
-    user_prompt = f"""Research question about {company_name}:
-
-{question}
-
-Use web_search to find information, then call finish_research with your answer."""
+    # Load prompt from Jinja template
+    prompt = load_prompt(
+        "researcher.jinja",
+        company_name=company_name,
+        question=question,
+        max_iterations=cfg.max_research_iterations,
+    )
 
     messages = [
-        {"role": "system", "content": RESEARCHER_SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt},
+        {"role": "user", "content": prompt},
     ]
     
     # ReAct loop (max iterations to prevent runaway)
@@ -220,4 +244,3 @@ async def research_questions_parallel(
                 results.append(result)
     
     return results
-

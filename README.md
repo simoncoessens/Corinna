@@ -34,3 +34,123 @@ Users receive a tailored dashboard identifying specifically which Articles of th
 ### 4. Interactive Legal Q&A
 
 A context-aware chatbot sits within the dashboard to answer follow-up questions. It uses RAG (Retrieval-Augmented Generation) grounded in the official DSA legal text to minimize hallucinations and provide citation-backed answers.
+
+---
+
+## 🏗️ Design Principles
+
+### Structured Prompt Engineering with Jinja Templates
+
+All AI agents in this application follow a **template-driven prompt architecture** using Jinja2. This approach provides:
+
+- **Separation of Concerns:** Prompts are stored in `.jinja` files, separate from Python logic
+- **Version Control:** Easy to track prompt changes and iterate on wording
+- **Configurability:** Template variables allow dynamic prompt customization
+- **Consistency:** Standardized structure across all agents
+
+#### Directory Structure
+
+```
+backend/agents/
+├── prompts/                          # Shared prompt utilities
+│   └── __init__.py                   # load_prompt() helper
+│
+├── company_matcher/
+│   └── src/company_matcher/
+│       ├── prompts/
+│       │   └── prompt.jinja          # Single-turn prompt (system + task)
+│       └── graph.py
+│
+├── company_researcher/
+│   └── src/company_researcher/
+│       ├── prompts/
+│       │   ├── researcher.jinja      # Single-turn prompt (system + task)
+│       │   └── summarize.jinja       # Summarization prompt
+│       └── graph.py
+│
+└── main_agent/
+    └── src/main_agent/
+        ├── prompts/
+        │   └── system.jinja           # Multi-turn: system prompt only
+        └── graph.py                   # User messages come from state
+```
+
+#### Usage Example
+
+```python
+from jinja2 import Environment, FileSystemLoader
+from pathlib import Path
+
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(PROMPTS_DIR)),
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
+
+def load_prompt(template_name: str, **kwargs) -> str:
+    """Load and render a Jinja2 prompt template."""
+    template = _jinja_env.get_template(template_name)
+    return template.render(**kwargs)
+
+# Usage (single-turn agent)
+prompt = load_prompt(
+    "prompt.jinja",
+    company_name="Acme Corp",
+    max_iterations=5,
+)
+
+# Usage (multi-turn agent - system prompt only)
+system_prompt = load_prompt("system.jinja", context=frontend_context)
+```
+
+#### Template Conventions
+
+1. **Header Comments:** Each template starts with a Jinja comment block describing its purpose and variables
+2. **Markdown Formatting:** Prompts use Markdown for structure (headers, lists, code blocks)
+3. **Default Values:** Use `{{ var | default(value) }}` for optional parameters
+4. **Conditional Sections:** Use `{% if %}` blocks for context-dependent content
+5. **Single vs Multi-Turn:**
+   - **Single-turn agents** (company_matcher, company_researcher): Use one combined prompt template
+   - **Multi-turn agents** (main_agent): Separate system prompt from user messages
+
+Example single-turn template:
+
+```jinja
+{# Company Matcher - Complete Prompt #}
+{#
+  Variables:
+    - company_name: The target company
+    - max_iterations: Maximum search attempts (default: 5)
+#}
+
+You are a company matching agent.
+
+## Guidelines
+- Maximum {{ max_iterations | default(5) }} iterations allowed
+
+## Task
+Find a match for: "{{ company_name }}"
+```
+
+Example multi-turn template (system prompt only):
+
+```jinja
+{# Main Agent - System Prompt #}
+{#
+  Variables:
+    - context: Optional frontend context
+#}
+
+You are the DSA Copilot assistant.
+
+## Guidelines
+- Cite specific DSA articles
+- Provide actionable guidance
+
+{% if context %}
+## Current Context
+{{ context }}
+{% endif %}
+```

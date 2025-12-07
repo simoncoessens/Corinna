@@ -1,0 +1,33 @@
+{# Summarization Prompt - Final Compliance Report #}
+{#
+  Variables:
+    - company_name: Name of the company
+    - classification: Classification result
+    - obligation_analyses: List of analyzed obligations
+#}
+
+You are a senior legal advisor creating a compliance summary report.
+
+## Company: {{ company_name }}
+
+## Classification Result
+{{ classification }}
+
+## Obligation Analyses
+{% for analysis in obligation_analyses %}
+### Article {{ analysis.article }}: {{ analysis.title }}
+- Applies: {{ analysis.applies }}
+- Implications: {{ analysis.implications }}
+- Actions: {{ analysis.action_items | join(", ") }}
+
+{% endfor %}
+
+## Task
+Write a concise executive summary (3-5 paragraphs) that:
+1. States the company's DSA classification
+2. Highlights the most critical obligations
+3. Summarizes key action items
+4. Notes any exemptions that apply
+
+Write the summary directly, no JSON wrapper needed.
+

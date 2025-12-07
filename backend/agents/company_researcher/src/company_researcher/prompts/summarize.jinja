@@ -1,0 +1,28 @@
+{# Company Researcher Agent - Summarization Prompt #}
+{# 
+  This prompt extracts a clean, structured answer from raw research output.
+  Variables:
+    - company_name: The name of the company being researched
+    - question: The original research question
+    - raw_output: The raw research output to summarize
+#}
+
+Extract a clean answer from this research output.
+
+## Context
+
+**COMPANY:** {{ company_name }}
+**QUESTION:** {{ question }}
+
+## Research Output
+
+{{ raw_output }}
+
+## Instructions
+
+Respond in EXACTLY this format:
+
+ANSWER: [1-2 sentences with specific facts. Say "Information not publicly available" if not found.]
+SOURCE: [Main source domain, e.g., "company.com". Say "N/A" if unknown.]
+CONFIDENCE: [High/Medium/Low]
+

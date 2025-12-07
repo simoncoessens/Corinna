@@ -1,0 +1,10 @@
+{
+  "dockerfile_lines": [],
+  "graphs": {
+    "Company Matcher": "./src/company_matcher/graph.py:company_matcher"
+  },
+  "python_version": "3.11",
+  "env": "../../../.env",
+  "dependencies": ["."]
+}
+

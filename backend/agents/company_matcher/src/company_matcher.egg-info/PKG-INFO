@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: company_matcher
+Version: 0.1.0
+Summary: Company name matching agent using Tavily search
+Requires-Python: >=3.11
+Requires-Dist: langchain>=0.3.0
+Requires-Dist: langchain-openai>=0.2.0
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: tavily-python>=0.5.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"

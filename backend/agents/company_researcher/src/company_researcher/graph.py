@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 from typing import List
 
-from langchain.chat_models import init_chat_model
+from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from company_researcher.configuration import Configuration
@@ -22,29 +25,28 @@ from company_researcher.state import CompanyResearchInputState, CompanyResearchS
 from company_researcher.utils import get_api_key_for_model
 
 
-# Initialize configurable model for summarization
-_configurable_model = init_chat_model(
-    configurable_fields=("model", "max_tokens", "api_key"),
+# =============================================================================
+# Prompt Loading
+# =============================================================================
+
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(PROMPTS_DIR)),
+    trim_blocks=True,
+    lstrip_blocks=True,
 )
+
+
+def load_prompt(template_name: str, **kwargs) -> str:
+    """Load and render a Jinja2 prompt template."""
+    template = _jinja_env.get_template(template_name)
+    return template.render(**kwargs)
 
 
 # =============================================================================
 # Summarization
 # =============================================================================
-
-SUMMARIZE_PROMPT = """Extract a clean answer from this research output.
-
-COMPANY: {company_name}
-QUESTION: {question}
-
-RESEARCH OUTPUT:
-{raw_output}
-
-Respond in EXACTLY this format:
-ANSWER: [1-2 sentences with specific facts. Say "Information not publicly available" if not found.]
-SOURCE: [Main source domain, e.g., "company.com". Say "N/A" if unknown.]
-CONFIDENCE: [High/Medium/Low]"""
-
 
 async def _summarize_research(
     raw_output: str,
@@ -68,17 +70,35 @@ async def _summarize_research(
     try:
         cfg = Configuration.from_runnable_config(config) if config else Configuration()
         
-        model_config = {
-            "model": cfg.summarization_model,
+        # Extract model name (remove "openai:" prefix if present)
+        model_name = cfg.summarization_model.replace("openai:", "") if cfg.summarization_model.startswith("openai:") else cfg.summarization_model
+        
+        # Get API credentials
+        api_key = get_api_key_for_model(cfg.summarization_model, config)
+        base_url = None
+        if config:
+            api_keys = config.get("configurable", {}).get("apiKeys", {})
+            base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+        else:
+            base_url = os.getenv("OPENAI_BASE_URL")
+        
+        # Set up model
+        model_params = {
+            "model": model_name,
             "max_tokens": 500,
-            "api_key": get_api_key_for_model(cfg.summarization_model, config),
         }
+        if api_key:
+            model_params["api_key"] = api_key
+        if base_url:
+            model_params["base_url"] = base_url
         
-        model = _configurable_model.with_config(model_config)
+        model = ChatOpenAI(**model_params)
         
+        # Load prompt from Jinja template
         # Allow much more context for summarization while keeping a hard cap.
         # DeepSeek V3.2 supports ~128K tokens; we approximate this as ~400K characters.
-        prompt = SUMMARIZE_PROMPT.format(
+        prompt = load_prompt(
+            "summarize.jinja",
             company_name=company_name,
             question=question,
             raw_output=raw_output[:400000],

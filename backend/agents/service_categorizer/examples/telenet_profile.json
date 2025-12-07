@@ -1,0 +1,85 @@
+{
+  "company_name": "Telenet",
+  "legal_name": "Telenet Group Holding NV",
+  "headquarters": {
+    "country": "Belgium",
+    "city": "Mechelen",
+    "address": "Liersesteenweg 4"
+  },
+  "company_type": "Public Company (Euronext Brussels: TNET)",
+  "parent_company": "Liberty Global",
+  "services": [
+    {
+      "name": "Internet Access",
+      "type": "ISP / Mere Conduit",
+      "description": "Fixed broadband internet via cable and fiber network",
+      "eu_users": true
+    },
+    {
+      "name": "Mobile Services",
+      "type": "Telecommunications",
+      "description": "Mobile voice and data services under Telenet and BASE brands",
+      "eu_users": true
+    },
+    {
+      "name": "TV Services",
+      "type": "Broadcasting / Caching",
+      "description": "Digital TV including on-demand streaming via Telenet TV app",
+      "eu_users": true
+    },
+    {
+      "name": "Telenet Business",
+      "type": "B2B Hosting",
+      "description": "Cloud hosting, connectivity, and IT services for businesses",
+      "eu_users": true
+    },
+    {
+      "name": "Tadaam",
+      "type": "Streaming Platform",
+      "description": "OTT streaming service combining TV and internet",
+      "eu_users": true
+    }
+  ],
+  "user_metrics": {
+    "total_customers": 2900000,
+    "broadband_subscribers": 1700000,
+    "mobile_subscribers": 3100000,
+    "tv_subscribers": 1500000,
+    "geographic_scope": "Belgium (primarily Flanders and Brussels)",
+    "monthly_active_eu_users_estimate": 2500000
+  },
+  "business_model": {
+    "revenue_model": "Subscription-based",
+    "annual_revenue_eur": 2800000000,
+    "employees": 3200,
+    "advertising_revenue": false,
+    "user_generated_content": false
+  },
+  "content_moderation": {
+    "hosts_user_content": false,
+    "has_public_dissemination": false,
+    "has_recommender_system": true,
+    "recommender_description": "Content recommendations in TV app based on viewing history",
+    "has_content_moderation_team": false
+  },
+  "data_practices": {
+    "collects_user_data": true,
+    "uses_profiling": true,
+    "profiling_purpose": "Service optimization and personalized TV recommendations",
+    "targets_minors": false
+  },
+  "legal_status": {
+    "established_in_eu": true,
+    "eu_establishment_country": "Belgium",
+    "subject_to_local_telecom_regulation": true,
+    "existing_dsa_compliance_measures": "Unknown"
+  },
+  "research_sources": [
+    "https://www2.telenet.be/",
+    "https://investors.telenet.be/",
+    "Annual Report 2023"
+  ],
+  "research_date": "2024-12-07",
+  "research_confidence": "High"
+}
+

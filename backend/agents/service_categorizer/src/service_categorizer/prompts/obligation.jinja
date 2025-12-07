@@ -1,0 +1,41 @@
+{# Obligation Analysis Prompt #}
+{#
+  Variables:
+    - company_name: Name of the company
+    - company_profile: Company data JSON
+    - classification_summary: Summary of how company was classified
+    - obligation: Full obligation dict with article, title, context, key_requirements
+#}
+
+You are a DSA compliance advisor explaining a specific obligation to a company.
+
+## Company: {{ company_name }}
+{{ classification_summary }}
+
+## Obligation: Article {{ obligation.article }}
+**{{ obligation.title }}**
+
+### Context
+{{ obligation.context }}
+
+### Key Requirements
+{% for req in obligation.key_requirements %}
+- {{ req }}
+{% endfor %}
+
+## Company Profile
+{{ company_profile }}
+
+## Task
+Analyze how this specific obligation applies to {{ company_name }}.
+
+Respond with valid JSON only:
+```json
+{
+  "article": "{{ obligation.article }}",
+  "title": "{{ obligation.title }}",
+  "applies": true,
+  "implications": "2-3 sentences explaining what this means for this specific company",
+  "action_items": ["Specific action 1 for this company", "Specific action 2", "..."]
+}
+```

@@ -1,13 +1,22 @@
 """Parser for the Digital Services Act HTML document."""
+import os
+from pathlib import Path
 import re
 import warnings
+
 import httpx
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+
 from .models import ArticleChunk
 
 # Suppress XML warning for HTML content
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
+
+# Optional local cached HTML file (can be checked into the repo)
+LOCAL_DSA_HTML_PATH = os.getenv(
+    "DSA_HTML_PATH", str(Path(__file__).with_name("dsa.html"))
+)
 
 DSA_URL = "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32022R2065"
 
@@ -39,7 +48,19 @@ def get_article_metadata(article_num: int) -> tuple[str, str]:
 
 
 def download_dsa_html() -> str:
-    """Download DSA HTML from EUR-Lex."""
+    """Load DSA HTML from local file if available, fallback to EUR-Lex."""
+    # Prefer local cached copy if present
+    try:
+        if LOCAL_DSA_HTML_PATH:
+            path = Path(LOCAL_DSA_HTML_PATH)
+            if path.is_file() and path.stat().st_size > 0:
+                with path.open("r", encoding="utf-8") as f:
+                    return f.read()
+    except Exception:
+        # Ignore local file errors and fallback to network
+        pass
+
+    # Fallback: download from EUR-Lex
     response = httpx.get(DSA_URL, follow_redirects=True, timeout=60.0)
     response.raise_for_status()
     return response.text
@@ -159,4 +180,48 @@ def _parse_definitions(soup: BeautifulSoup) -> list[ArticleChunk]:
             ))
     
     return chunks
+
+
+# =============================================================================
+# Simple Direct Retrieval (by article/recital number)
+# =============================================================================
+
+_CACHED_CHUNKS: list[ArticleChunk] | None = None
+
+
+def _get_all_chunks() -> list[ArticleChunk]:
+    """Load and cache all parsed chunks."""
+    global _CACHED_CHUNKS
+    if _CACHED_CHUNKS is None:
+        html = download_dsa_html()
+        _CACHED_CHUNKS = parse_dsa_document(html)
+    return _CACHED_CHUNKS
+
+
+def get_article(article_num: int | str) -> ArticleChunk | None:
+    """Get an article by its number (e.g., 11, 15, 33)."""
+    target_id = f"article_{article_num}"
+    for chunk in _get_all_chunks():
+        if chunk.id == target_id:
+            return chunk
+    return None
+
+
+def get_recital(recital_num: int | str) -> ArticleChunk | None:
+    """Get a recital by its number (e.g., 1, 7, 13)."""
+    target_id = f"recital_{recital_num}"
+    for chunk in _get_all_chunks():
+        if chunk.id == target_id:
+            return chunk
+    return None
+
+
+def get_articles(article_nums: list[int | str]) -> list[ArticleChunk]:
+    """Get multiple articles by their numbers."""
+    return [a for num in article_nums if (a := get_article(num))]
+
+
+def get_recitals(recital_nums: list[int | str]) -> list[ArticleChunk]:
+    """Get multiple recitals by their numbers."""
+    return [r for num in recital_nums if (r := get_recital(num))]
 

@@ -1,0 +1,12 @@
+pyproject.toml
+src/service_categorizer/__init__.py
+src/service_categorizer/graph.py
+src/service_categorizer/models.py
+src/service_categorizer/obligations.py
+src/service_categorizer/state.py
+src/service_categorizer.egg-info/PKG-INFO
+src/service_categorizer.egg-info/SOURCES.txt
+src/service_categorizer.egg-info/dependency_links.txt
+src/service_categorizer.egg-info/requires.txt
+src/service_categorizer.egg-info/top_level.txt
+src/service_categorizer/obligations/__init__.py

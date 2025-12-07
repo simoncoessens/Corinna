@@ -1,0 +1,10 @@
+{
+  "dockerfile_lines": [],
+  "graphs": {
+    "Service Categorizer": "./src/service_categorizer/graph.py:service_categorizer"
+  },
+  "python_version": "3.11",
+  "env": "../../../.env",
+  "dependencies": ["."]
+}
+

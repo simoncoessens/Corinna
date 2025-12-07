@@ -4,7 +4,7 @@
     "Company Researcher": "./src/company_researcher/graph.py:company_researcher"
   },
   "python_version": "3.11",
-  "env": "./.env",
+  "env": "../../../.env",
   "dependencies": ["."]
 }
 

@@ -15,7 +15,9 @@ from .models import ArticleChunk
 
 
 COLLECTION_NAME = "dsa_articles"
-EMBEDDING_MODEL = "text-embedding-3-small"
+# Allow overriding the embedding model via env var so you can use any model
+# available to your OpenAI account, e.g. "text-embedding-ada-002".
+EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 EMBEDDING_DIM = 1536
 
 
@@ -32,7 +34,17 @@ class DSARetriever:
             url=qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333"),
             api_key=qdrant_api_key or os.getenv("QDRANT_API_KEY") or None,
         )
-        self.openai = OpenAI(api_key=openai_api_key or os.getenv("OPENAI_API_KEY"))
+        # Initialize OpenAI client for embeddings.
+        # Use a dedicated env var so we don't conflict with DeepSeek's OPENAI_API_KEY
+        # or its custom OPENAI_BASE_URL.
+        api_key = openai_api_key or os.getenv("OPENAI_EMBEDDING_API_KEY")
+        base_url = os.getenv("OPENAI_EMBEDDING_BASE_URL", "https://api.openai.com/v1")
+
+        if not api_key:
+            # Fall back to standard OPENAI_API_KEY if a dedicated one isn't set
+            api_key = os.getenv("OPENAI_API_KEY")
+
+        self.openai = OpenAI(api_key=api_key, base_url=base_url)
 
     def is_ready(self) -> bool:
         """Check if the knowledge base is ready for queries."""

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "main_agent"
+version = "0.1.0"
+description = "DSA Copilot Main Agent"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
+    "tavily-python>=0.5.0",
+    "pydantic>=2.0.0",
+    "qdrant-client>=1.7.0",
+    "openai>=1.0.0",
+    "jinja2>=3.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

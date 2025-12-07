@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: main_agent
+Version: 0.1.0
+Summary: DSA Copilot Main Agent
+Requires-Python: >=3.11
+Requires-Dist: langchain>=0.3.0
+Requires-Dist: langchain-openai>=0.2.0
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: tavily-python>=0.5.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: qdrant-client>=1.7.0
+Requires-Dist: openai>=1.0.0

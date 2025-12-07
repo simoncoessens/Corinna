@@ -5,6 +5,7 @@ src/company_researcher/configuration.py
 src/company_researcher/csv_parser.py
 src/company_researcher/graph.py
 src/company_researcher/models.py
+src/company_researcher/researcher.py
 src/company_researcher/state.py
 src/company_researcher/utils.py
 src/company_researcher.egg-info/PKG-INFO

@@ -1,0 +1,58 @@
+# Additional Obligations for Online Marketplaces
+# DSA Articles 30-32 (Section 4 of Chapter III)
+# These apply to: Online Marketplaces (platforms enabling B2C contracts)
+# (In addition to Intermediary + Hosting + Platform obligations)
+#
+# NOTE: No SME exemption for marketplace-specific obligations!
+
+category: Online Marketplace
+description: |
+  Online marketplaces enable consumers to conclude distance contracts with traders.
+  These obligations ensure traders are traceable and consumers can identify who
+  they're buying from. This combats rogue traders and illegal products.
+
+sme_exemption_note: |
+  Unlike general platform obligations, marketplace-specific obligations (Art. 30-32)
+  have NO SME exemption. All marketplaces must comply regardless of size.
+
+obligations:
+  - article: 30
+    title: Traceability of traders
+    context: |
+      Before allowing a trader to use your platform, you MUST collect and verify
+      their identity information. This is KYBT - "Know Your Business Trader."
+      Enables accountability for illegal products/services.
+    key_requirements:
+      - Collect trader name, address, ID, contact details
+      - Collect trade register and VAT information
+      - Collect bank account details
+      - Make best efforts to verify information accuracy
+      - Verify against official databases where possible
+      - Obtain trader self-certification of compliance
+      - Request updated info if reason to believe data is incorrect
+
+  - article: 31
+    title: Compliance by design
+    context: |
+      Your platform interface must be designed to help traders comply with EU law.
+      Make it easy to provide required pre-contractual information, product safety
+      data, and trader identification.
+    key_requirements:
+      - Enable traders to provide legally required information
+      - Design interface to facilitate compliance
+      - Include fields for product/service identification
+      - Include fields for trader identification
+      - Ensure information is displayed to consumers
+
+  - article: 32
+    title: Right to information
+    context: |
+      When you become aware of illegal products sold through your platform,
+      you must inform consumers who purchased those products. This enables
+      consumer remedies and protects public safety.
+    key_requirements:
+      - Notify consumers of illegal products purchased
+      - Provide identity of the trader
+      - Provide relevant information for redress
+      - Make best efforts to reach affected consumers
+      - Notification must be clear and comprehensible
