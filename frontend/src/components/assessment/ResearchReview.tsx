@@ -1,0 +1,338 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Globe,
+  MapPin,
+  Users,
+  Server,
+  ChevronRight,
+  Check,
+  Edit3,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
+import type { SubQuestionAnswer } from "@/types/research";
+import {
+  ResearchSection,
+  SECTION_LABELS,
+  SECTION_DESCRIPTIONS,
+  SECTION_INSTRUCTIONS,
+} from "@/types/research";
+
+interface AnswerStatus {
+  accepted: boolean;
+  edited: boolean;
+}
+
+interface ResearchReviewProps {
+  section: ResearchSection;
+  answers: SubQuestionAnswer[];
+  currentStep: number;
+  totalSteps: number;
+  onConfirm: (editedAnswers: SubQuestionAnswer[]) => void;
+  onBack: () => void;
+}
+
+const SECTION_ICONS: Record<ResearchSection, typeof Globe> = {
+  "GEOGRAPHICAL SCOPE": MapPin,
+  "COMPANY SIZE": Users,
+  "TYPE OF SERVICE PROVIDED": Server,
+};
+
+export function ResearchReview({
+  section,
+  answers,
+  currentStep,
+  totalSteps,
+  onConfirm,
+  onBack,
+}: ResearchReviewProps) {
+  const [editedAnswers, setEditedAnswers] =
+    useState<SubQuestionAnswer[]>(answers);
+  const [answerStatuses, setAnswerStatuses] = useState<
+    Record<number, AnswerStatus>
+  >(() =>
+    Object.fromEntries(
+      answers.map((_, i) => [i, { accepted: false, edited: false }])
+    )
+  );
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const Icon = SECTION_ICONS[section];
+
+  // Check if all answers are accepted
+  const allAccepted = useMemo(() => {
+    return Object.values(answerStatuses).every((s) => s.accepted);
+  }, [answerStatuses]);
+
+  // Count accepted
+  const acceptedCount = useMemo(() => {
+    return Object.values(answerStatuses).filter((s) => s.accepted).length;
+  }, [answerStatuses]);
+
+  const handleAccept = (index: number) => {
+    setAnswerStatuses((prev) => ({
+      ...prev,
+      [index]: { ...prev[index], accepted: true },
+    }));
+  };
+
+  const handleEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditValue(editedAnswers[index].answer);
+  };
+
+  const handleSaveEdit = (index: number) => {
+    setEditedAnswers((prev) =>
+      prev.map((a, i) =>
+        i === index ? { ...a, answer: editValue, confidence: "High" } : a
+      )
+    );
+    setAnswerStatuses((prev) => ({
+      ...prev,
+      [index]: { accepted: true, edited: true },
+    }));
+    setEditingIndex(null);
+    setEditValue("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditValue("");
+  };
+
+  const handleConfirm = () => {
+    onConfirm(editedAnswers);
+  };
+
+  const confidenceColor = (confidence: string) => {
+    switch (confidence) {
+      case "High":
+        return "text-[#16a34a]";
+      case "Medium":
+        return "text-[#d97706]";
+      case "Low":
+        return "text-[#dc2626]";
+      default:
+        return "text-[#78716c]";
+    }
+  };
+
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 bg-[#f5f5f4] border border-[#e7e5e4] flex items-center justify-center flex-shrink-0">
+            <Icon className="w-6 h-6 text-[#57534e]" strokeWidth={1.5} />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-1">
+              <h2 className="font-serif text-xl text-[#0a0a0a]">
+                {SECTION_LABELS[section]}
+              </h2>
+              <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider px-2 py-0.5 bg-[#f5f5f4] border border-[#e7e5e4]">
+                {currentStep} / {totalSteps}
+              </span>
+            </div>
+            <p className="font-sans text-sm text-[#57534e] leading-relaxed">
+              {SECTION_DESCRIPTIONS[section]}
+            </p>
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="flex items-start gap-3 p-4 bg-[#fafaf9] border border-[#e7e5e4] mb-6">
+          <AlertCircle className="w-4 h-4 text-[#78716c] mt-0.5 flex-shrink-0" />
+          <p className="font-sans text-sm text-[#57534e]">
+            {SECTION_INSTRUCTIONS[section]}
+          </p>
+        </div>
+
+        {/* Progress */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+            Findings
+          </span>
+          <span className="font-mono text-[10px] text-[#57534e]">
+            {acceptedCount} of {answers.length} confirmed
+          </span>
+        </div>
+
+        {/* Answers */}
+        <div className="space-y-3 mb-6">
+          <AnimatePresence>
+            {editedAnswers.map((answer, index) => {
+              const status = answerStatuses[index];
+              const isEditing = editingIndex === index;
+
+              return (
+                <motion.div
+                  key={answer.question}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={cn(
+                    "border bg-white transition-colors",
+                    status.accepted ? "border-[#16a34a]/30" : "border-[#e7e5e4]"
+                  )}
+                >
+                  {/* Question header */}
+                  <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+                    <p className="font-sans text-sm font-medium text-[#0a0a0a] flex-1 pr-4">
+                      {answer.question}
+                    </p>
+                    {status.accepted && (
+                      <div className="flex items-center gap-1.5">
+                        {status.edited && (
+                          <span className="font-mono text-[9px] text-[#57534e] uppercase">
+                            Edited
+                          </span>
+                        )}
+                        <div className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center">
+                          <Check className="w-3 h-3 text-[#16a34a]" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Answer content */}
+                  <div className="p-4">
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          className={cn(
+                            "w-full p-3 border border-[#0a0a0a] bg-white",
+                            "font-sans text-sm text-[#0a0a0a]",
+                            "focus:outline-none resize-none",
+                            "min-h-[100px]"
+                          )}
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-3 py-1.5 font-sans text-xs text-[#78716c] hover:text-[#0a0a0a] transition-colors flex items-center gap-1"
+                          >
+                            <X className="w-3 h-3" />
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleSaveEdit(index)}
+                            className="px-3 py-1.5 bg-[#0a0a0a] text-white font-sans text-xs hover:bg-[#1a1a1a] transition-colors flex items-center gap-1"
+                          >
+                            <Check className="w-3 h-3" />
+                            Save & Accept
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="font-sans text-sm text-[#57534e] leading-relaxed mb-3">
+                          {answer.answer}
+                        </p>
+
+                        {/* Source and confidence */}
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="flex items-center gap-1">
+                            <Globe className="w-3 h-3 text-[#a8a29e]" />
+                            <span className="font-mono text-[10px] text-[#78716c]">
+                              {answer.source}
+                            </span>
+                          </div>
+                          <span
+                            className={cn(
+                              "font-mono text-[10px] uppercase",
+                              confidenceColor(answer.confidence)
+                            )}
+                          >
+                            {answer.confidence} confidence
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        {!status.accepted && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleAccept(index)}
+                              className="flex-1 px-4 py-2 bg-[#0a0a0a] text-white font-sans text-sm hover:bg-[#1a1a1a] transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Check className="w-4 h-4" />
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleEdit(index)}
+                              className="px-4 py-2 border border-[#e7e5e4] text-[#57534e] font-sans text-sm hover:border-[#0a0a0a] hover:text-[#0a0a0a] transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              Edit
+                            </button>
+                          </div>
+                        )}
+
+                        {status.accepted && (
+                          <button
+                            onClick={() => handleEdit(index)}
+                            className="font-mono text-[10px] text-[#78716c] hover:text-[#0a0a0a] transition-colors uppercase tracking-wider"
+                          >
+                            Edit answer
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+
+        {/* Continue button */}
+        <div className="flex gap-3">
+          {currentStep > 1 && (
+            <Button onClick={onBack} variant="outline" size="lg">
+              Back
+            </Button>
+          )}
+          <Button
+            onClick={handleConfirm}
+            disabled={!allAccepted}
+            variant="primary"
+            size="lg"
+            className="flex-1 group"
+          >
+            {currentStep === totalSteps ? (
+              <>
+                Complete Review
+                <Check className="w-4 h-4" />
+              </>
+            ) : (
+              <>
+                Continue to{" "}
+                {currentStep === 1 ? "Company Size" : "Service Type"}
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </>
+            )}
+          </Button>
+        </div>
+
+        {!allAccepted && (
+          <p className="mt-3 font-mono text-[10px] text-center text-[#a8a29e]">
+            Please accept or edit all findings before continuing
+          </p>
+        )}
+      </motion.div>
+    </div>
+  );
+}

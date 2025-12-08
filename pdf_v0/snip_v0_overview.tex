@@ -1,0 +1,46 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.7in]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{setspace}
+\setstretch{1.05}
+
+% Allow file names with spaces
+\newcommand{\img}[2][]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{\detokenize{#2}}
+    \if\relax\detokenize{#1}\relax\else\caption{#1}\fi
+  \end{figure}
+}
+
+\title{SNIP Project -- v0 Screens}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Context}
+\begin{enumerate}
+  \item Landing page with CTA to start the assessment.
+  \item Enter company, run matching, and confirm the target.
+  \item Deep research agent gathers public signals; user reviews results.
+  \item Service classification is produced.
+  \item Compliance dashboard shows obligations and grounded Q\&A.
+\end{enumerate}
+
+\section*{Screens}
+\graphicspath{{/Users/simoncoessens/Documents/GitHub/SNIP-tool/pdf_v0/}}
+\img[Landing and CTA]{Screenshot 2025-12-08 at 11.29.58 1.png}
+\img[Assessment entry]{Screenshot 2025-12-08 at 11.30.08.png}
+\img[Company matching search]{Screenshot 2025-12-08 at 11.31.02.png}
+\img[Company matching result]{Screenshot 2025-12-08 at 11.31.32.png}
+\img[Deep research progress]{Screenshot 2025-12-08 at 11.31.55.png}
+\img[Deep research result]{Screenshot 2025-12-08 at 11.36.50.png}
+\img[Classification]{Screenshot 2025-12-08 at 11.37.45.png}
+\img[Classification]{Screenshot 2025-12-08 at 11.37.56.png}
+\img[Classification complete]{Screenshot 2025-12-08 at 11.39.10.png}
+\img[Compliance dashboard]{Screenshot 2025-12-08 at 11.40.15.png}
+
+\end{document}
+

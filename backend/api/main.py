@@ -168,11 +168,29 @@ async def stream_agent_events(
             
             elif event_type == "on_tool_end":
                 output = event.get("data", {}).get("output", "")
+                output_str = str(output)
+                
+                # Extract URLs from search results for web_search tool
+                sources = []
+                if event_name == "web_search" and output_str:
+                    import re
+                    # Find URLs in the output
+                    url_pattern = r'https?://[^\s\n]+'
+                    urls = re.findall(url_pattern, output_str)
+                    # Also try to extract titles (format: "**Title**\n   URL")
+                    title_pattern = r'\*\*([^*]+)\*\*\n\s+(https?://[^\s\n]+)'
+                    title_matches = re.findall(title_pattern, output_str)
+                    if title_matches:
+                        sources = [{"title": t.strip(), "url": u.strip()} for t, u in title_matches[:8]]
+                    elif urls:
+                        sources = [{"url": u.strip()} for u in urls[:8]]
+                
                 tool_end_data = {
                     'type': 'tool_end',
                     'name': event_name or 'unknown',
                     'node': node,
-                    'output_length': len(str(output)),
+                    'output_length': len(output_str),
+                    'sources': sources,
                 }
                 yield f"data: {json.dumps(tool_end_data)}\n\n"
             

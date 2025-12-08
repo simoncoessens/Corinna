@@ -1,0 +1,392 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   SNIP-tool Design System
+   A legal-grade aesthetic: authoritative, precise, trustworthy
+   ============================================================================= */
+
+:root {
+  /* Color Palette - Legal/Professional */
+  --color-ink: #0a0a0a;
+  --color-paper: #fafaf9;
+  --color-parchment: #f5f5f4;
+  --color-stone: #78716c;
+  --color-muted: #a8a29e;
+  
+  /* Accent - Legal Gold/Amber */
+  --color-accent: #b8860b;
+  --color-accent-light: #daa520;
+  --color-accent-muted: rgba(184, 134, 11, 0.1);
+  
+  /* EU Blue - For DSA references */
+  --color-eu-blue: #003399;
+  --color-eu-blue-light: #0044cc;
+  
+  /* Status Colors */
+  --color-success: #166534;
+  --color-warning: #b45309;
+  --color-error: #b91c1c;
+  
+  /* Gradients */
+  --gradient-paper: linear-gradient(
+    135deg,
+    #fafaf9 0%,
+    #f5f5f4 50%,
+    #e7e5e4 100%
+  );
+  --gradient-accent: linear-gradient(
+    135deg,
+    #b8860b 0%,
+    #daa520 100%
+  );
+  
+  /* Typography Scale */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+  --font-size-7xl: 4.5rem;
+  --font-size-8xl: 6rem;
+  
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+  
+  /* Borders */
+  --border-width: 1px;
+  --border-color: rgba(10, 10, 10, 0.1);
+  --border-color-strong: rgba(10, 10, 10, 0.2);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.04);
+  --shadow-md: 0 4px 6px rgba(10, 10, 10, 0.06);
+  --shadow-lg: 0 10px 15px rgba(10, 10, 10, 0.08);
+  --shadow-xl: 0 20px 25px rgba(10, 10, 10, 0.1);
+  
+  /* Animation */
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 800ms;
+  --easing-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  
+  /* Background */
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* =============================================================================
+   Base Styles
+   ============================================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =============================================================================
+   Typography
+   ============================================================================= */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-sans {
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), monospace;
+}
+
+/* Legal document styling */
+.legal-text {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: var(--font-size-lg);
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+.article-reference {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  color: var(--color-eu-blue);
+  background: rgba(0, 51, 153, 0.05);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   Selection & Focus
+   ============================================================================= */
+
+::selection {
+  background: var(--color-accent-muted);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* =============================================================================
+   Scrollbar
+   ============================================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-stone);
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 0 var(--color-accent-muted);
+  }
+  50% {
+    border-color: var(--color-accent-light);
+    box-shadow: 0 0 20px 2px var(--color-accent-muted);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-slow) var(--easing-out) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-slow) var(--easing-out) forwards;
+}
+
+.animate-fade-in-down {
+  animation: fadeInDown var(--duration-slow) var(--easing-out) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-slow) var(--easing-out) forwards;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft var(--duration-slow) var(--easing-out) forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Staggered animation delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+.delay-1000 { animation-delay: 1000ms; }
+.delay-1200 { animation-delay: 1200ms; }
+.delay-1500 { animation-delay: 1500ms; }
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-dark {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.border-subtle {
+  border: var(--border-width) solid var(--border-color);
+}
+
+.border-strong {
+  border: var(--border-width) solid var(--border-color-strong);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Legal seal/badge styling */
+.legal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-stone);
+  background: var(--color-parchment);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 0.25rem;
+}
+
+/* Vertical text for decorative purposes */
+.vertical-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Pattern overlay */
+.pattern-dots {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--border-color) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
+}
+
+.pattern-lines {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--border-color) 0,
+    var(--border-color) 1px,
+    transparent 1px,
+    transparent 60px
+  );
+}

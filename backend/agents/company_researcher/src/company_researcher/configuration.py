@@ -49,7 +49,7 @@ class Configuration(BaseModel):
         metadata={"description": "Max chars of content before truncation"}
     )
     max_concurrent_research: int = Field(
-        default=3,
+        default=2,
         metadata={"description": "Max sub-questions to research in parallel"}
     )
 

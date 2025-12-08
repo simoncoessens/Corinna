@@ -1,8 +1,8 @@
-**DSA Copilot** is an intelligent application designed to help digital service providers navigating the complex regulatory landscape of the European Union's Digital Services Act (DSA).
+**snip-project** is an intelligent application designed to help digital service providers navigate the complex regulatory landscape of the European Union's Digital Services Act (DSA).
 
 The DSA introduces a tiered system of obligations based on a company's size and role in the digital ecosystem—ranging from "Intermediary Services" to "Very Large Online Platforms" (VLOPs). Determining exact categorization and specific compliance duties can be legally dense and time-consuming.
 
-**DSA Copilot** automates this initial assessment. By combining **Deep Research Agents** with a **Legal RAG (Retrieval-Augmented Generation)** engine, the application autonomously builds an organization's profile, classifies its service type, and generates a personalized compliance roadmap.
+**snip-project** automates this initial assessment. By combining **Deep Research Agents** with a **Legal RAG (Retrieval-Augmented Generation)** engine, the application autonomously builds an organization's profile, classifies its service type, and generates a personalized compliance roadmap.
 
 ## 🚀 Key Features
 
@@ -112,6 +112,7 @@ system_prompt = load_prompt("system.jinja", context=frontend_context)
 3. **Default Values:** Use `{{ var | default(value) }}` for optional parameters
 4. **Conditional Sections:** Use `{% if %}` blocks for context-dependent content
 5. **Single vs Multi-Turn:**
+
    - **Single-turn agents** (company_matcher, company_researcher): Use one combined prompt template
    - **Multi-turn agents** (main_agent): Separate system prompt from user messages
 
@@ -143,7 +144,7 @@ Example multi-turn template (system prompt only):
     - context: Optional frontend context
 #}
 
-You are the DSA Copilot assistant.
+You are the snip-project assistant.
 
 ## Guidelines
 - Cite specific DSA articles
