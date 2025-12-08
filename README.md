@@ -4,7 +4,9 @@
   <img src="frontend/public/Santanna_logo.png" alt="Sant’Anna School of Advanced Studies" width="140" />
 </div>
 
-**snip-project** is a DSA copilot built from a stack of LangGraph agents. It is being built by Simon Coessens in collaboration with Vittorio Franzese (legal lead; PhD in AI & Law at the University of Tübingen), under PI Prof. Antonio Davola, as the Digital Services Act Self-Assessment Tool within the PRIN PNRR 2022 – SNIP “Self-Assessment Network Impact Program” during an External Expert engagement (Università degli Studi di Bari, Jun–Nov 2025). Project context: [SNIP Project](https://www.antoniodavola.com/snip/). It resolves the company entity, pulls public signals, classifies the service against the DSA taxonomy, and emits an obligation-scoped report backed by a local DSA knowledge base (Qdrant + embeddings). The tool is under active development; a hosted version will be released soon.
+<br>
+
+**snip-project** is an agentic Digital Services Act self-assessment tool built with LangGraph. It is being built by Simon Coessens in collaboration with Vittorio Franzese (legal lead; PhD in AI & Law at the University of Tübingen), under PI Prof. Antonio Davola, as part of the PRIN PNRR 2022 – SNIP “Self-Assessment Network Impact Program” during an External Expert engagement (Università degli Studi di Bari, Jun–Nov 2025). Project context: [SNIP Project](https://www.antoniodavola.com/snip/).
 
 **TL;DR**: EU digital regulation is dense. This tool determines whether a company is in-scope for the Digital Services Act, assigns the correct service category, and explains which obligations matter for that company.
 
