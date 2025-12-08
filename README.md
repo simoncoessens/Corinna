@@ -1,52 +1,79 @@
-**snip-project** is an intelligent application designed to help digital service providers navigate the complex regulatory landscape of the European Union's Digital Services Act (DSA).
+<div align="center">
+  <img src="frontend/public/bari_logo_original.png" alt="Università degli Studi di Bari" width="140" />
+  <img src="frontend/public/MUR_logo-300x300.jpg" alt="Ministero dell’Università e della Ricerca" width="140" />
+  <img src="frontend/public/Santanna_logo.png" alt="Sant’Anna School of Advanced Studies" width="140" />
+</div>
 
-The DSA introduces a tiered system of obligations based on a company's size and role in the digital ecosystem—ranging from "Intermediary Services" to "Very Large Online Platforms" (VLOPs). Determining exact categorization and specific compliance duties can be legally dense and time-consuming.
+**snip-project** is a DSA copilot built from a stack of LangGraph agents. It is being built by Simon Coessens in collaboration with Vittorio Franzese (legal lead; PhD in AI & Law at the University of Tübingen), under PI Prof. Antonio Davola, as the Digital Services Act Self-Assessment Tool within the PRIN PNRR 2022 – SNIP “Self-Assessment Network Impact Program” during an External Expert engagement (Università degli Studi di Bari, Jun–Nov 2025). Project context: [SNIP Project](https://www.antoniodavola.com/snip/). It resolves the company entity, pulls public signals, classifies the service against the DSA taxonomy, and emits an obligation-scoped report backed by a local DSA knowledge base (Qdrant + embeddings). The tool is under active development; a hosted version will be released soon.
 
-**snip-project** automates this initial assessment. By combining **Deep Research Agents** with a **Legal RAG (Retrieval-Augmented Generation)** engine, the application autonomously builds an organization's profile, classifies its service type, and generates a personalized compliance roadmap.
+**TL;DR**: EU digital regulation is dense. This tool determines whether a company is in-scope for the Digital Services Act, assigns the correct service category, and explains which obligations matter for that company.
 
-## 🚀 Key Features
+## System Overview
 
-### 1. Autonomous Organization Profiling
+- Minimal input surface: the user provides a company name; all other context is AI-harvested and user-validated.
+- Backend: FastAPI (`backend/api/main.py`) exposes streaming and blocking endpoints per agent graph. Streaming is SSE-based and forwards LangGraph event traces (LLM tokens, tool starts/ends, node transitions).
+- Models/tools: `deepseek-chat` (LangChain), Tavily search, Qdrant retriever (`knowledge_base`) with OpenAI embeddings.
+- Frontend: Next.js app orchestrates the multi-phase flow and passes `frontend_context` into the main agent so replies are aware of the active company/phase.
 
-Instead of asking users to fill out endless forms, the application employs a **Deep Research Agent**.
+## Agent Graphs (LangGraph)
 
-- **Input:** Users provide only the company name.
-- **Process:** The agent scrapes public data (Terms of Service, "About Us" pages) to infer critical metrics like monthly active users (MAU), monetization models (ads/subscriptions), and content recommendation systems.
-- **Verification:** Users review the AI-generated profile and apply corrections via a "JSON Patch" mechanism for seamless data updates.
+- **Company Matcher (`backend/agents/company_matcher`)** – ReAct loop with tools `web_search` (Tavily) and `finish_matching`. Iterates a capped number of times to resolve the canonical company (name + URL) and returns structured JSON.
+- **Company Researcher (`backend/agents/company_researcher`)** – Loads sub-questions from CSV, runs parallel research agents per question, then summarises with a separate model call. Batching is governed by `max_concurrent_research`; output is `SubQuestionAnswer[]` plus raw research traces.
+- **Service Categorizer (`backend/agents/service_categorizer`)** – Ingests the confirmed profile JSON, classifies territorial scope and service class, derives obligations from YAML specs, and runs per-obligation analyses (batched) before emitting a consolidated compliance report.
+- **Main Agent (`backend/agents/main_agent`)** – Lightweight ReAct wrapper with tools `retrieve_dsa_knowledge` (Qdrant-backed RAG) and `web_search`. Accepts `frontend_context` to condition the system prompt on UI state.
 
-### 2. Intelligent Service Categorization
+## API Surface (FastAPI)
 
-The core "Assessment Brain" determines where a service fits within the DSA's regulatory pyramid:
+- `/agents/company_matcher[/stream]` – entity resolution.
+- `/agents/company_researcher[/stream]` – parallel research + summarisation.
+- `/agents/service_categorizer[/stream]` – service classification and obligation analysis.
+- `/agents/main_agent[/stream]` – chat entry point with optional frontend context.
+- `/health` – agent availability.
 
-- **Intermediary Service:** Mere conduit, caching, or domain services.
-- **Hosting Service:** Cloud providers and web hosting.
-- **Online Platform:** Social networks, marketplaces, and app stores.
-- **VLOP/VLOSE:** Platforms with >45 million monthly active users in the EU.
+## Frontend Workflow (Next.js, `src/app/assessment/page.tsx`)
 
-### 3. Personalized Compliance Roadmap
+- Phase 1: `CompanyMatcher` streams candidate entities from the matcher graph.
+- Phase 2: `DeepResearch` runs the researcher graph; `ResearchReview` lets users accept/override per-section findings (scope, size, service type).
+- Phase 3: `ServiceClassification` posts the curated profile to the categorizer; `ComplianceDashboard` renders applicability and action items for each obligation.
+- Chat sidecar (`Chatbot`) feeds `frontend_context` to the main agent so answers stay aligned with the active company and phase.
 
-Users receive a tailored dashboard identifying specifically which Articles of the DSA apply to them.
+## Screens (from v0, in `pdf_v0/`, chronological)
 
-- **Obligation Mapping:** Links specific legal articles (e.g., _Article 15: Transparency Reporting_, _Article 16: Notice & Action_) directly to the user's business model.
-- **Action Items:** Translates "legalese" into actionable steps (e.g., "Implement a mechanism for users to flag illegal content").
-- **Export:** Generates a comprehensive PDF/Markdown compliance report.
+Landing:
+![Landing](pdf_v0/Screenshot%202025-12-08%20at%2011.29.58.png)
 
-### 4. Interactive Legal Q&A
+Initial CTA / flow selection:
+![Flow selection](pdf_v0/Screenshot%202025-12-08%20at%2011.30.08.png)
 
-A context-aware chatbot sits within the dashboard to answer follow-up questions. It uses RAG (Retrieval-Augmented Generation) grounded in the official DSA legal text to minimize hallucinations and provide citation-backed answers.
+Assessment overview:
+![Assessment overview](pdf_v0/Screenshot%202025-12-08%20at%2011.31.02.png)
 
----
+Research review – scope confirmation:
+![Research review (scope)](pdf_v0/Screenshot%202025-12-08%20at%2011.31.32.png)
+
+Research review – size confirmation:
+![Research review (size)](pdf_v0/Screenshot%202025-12-08%20at%2011.31.55.png)
+
+Research in progress:
+![Research progress](pdf_v0/Screenshot%202025-12-08%20at%2011.36.50.png)
+
+Research summary:
+![Research summary](pdf_v0/Screenshot%202025-12-08%20at%2011.37.45.png)
+
+Compliance dashboard – obligations list:
+![Compliance dashboard (list)](pdf_v0/Screenshot%202025-12-08%20at%2011.37.56.png)
+
+Compliance dashboard – obligation detail:
+![Compliance dashboard (detail)](pdf_v0/Screenshot%202025-12-08%20at%2011.39.10.png)
+
+Compliance dashboard – action items export:
+![Compliance dashboard (actions)](pdf_v0/Screenshot%202025-12-08%20at%2011.40.15.png)
 
 ## 🏗️ Design Principles
 
-### Structured Prompt Engineering with Jinja Templates
+### Prompting with Jinja Templates (brief)
 
-All AI agents in this application follow a **template-driven prompt architecture** using Jinja2. This approach provides:
-
-- **Separation of Concerns:** Prompts are stored in `.jinja` files, separate from Python logic
-- **Version Control:** Easy to track prompt changes and iterate on wording
-- **Configurability:** Template variables allow dynamic prompt customization
-- **Consistency:** Standardized structure across all agents
+Prompts live in `.jinja` files alongside each agent and are rendered with Jinja2 to inject runtime variables (company name, context, classification summaries). The code loads templates via a shared helper and renders per call; logic stays in Python, text in templates.
 
 #### Directory Structure
 
@@ -68,6 +95,13 @@ backend/agents/
 │       │   └── summarize.jinja       # Summarization prompt
 │       └── graph.py
 │
+├── service_categorizer/
+│   └── src/service_categorizer/
+│       ├── prompts/
+│       │   ├── classify.jinja        # Service class + territorial scope
+│       │   ├── obligation.jinja      # Per-obligation analysis
+│       │   └── summarize.jinja       # Final report synthesis
+│       └── graph.py
 └── main_agent/
     └── src/main_agent/
         ├── prompts/
@@ -75,46 +109,10 @@ backend/agents/
         └── graph.py                   # User messages come from state
 ```
 
-#### Usage Example
+#### Template notes
 
-```python
-from jinja2 import Environment, FileSystemLoader
-from pathlib import Path
-
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
-_jinja_env = Environment(
-    loader=FileSystemLoader(str(PROMPTS_DIR)),
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
-
-def load_prompt(template_name: str, **kwargs) -> str:
-    """Load and render a Jinja2 prompt template."""
-    template = _jinja_env.get_template(template_name)
-    return template.render(**kwargs)
-
-# Usage (single-turn agent)
-prompt = load_prompt(
-    "prompt.jinja",
-    company_name="Acme Corp",
-    max_iterations=5,
-)
-
-# Usage (multi-turn agent - system prompt only)
-system_prompt = load_prompt("system.jinja", context=frontend_context)
-```
-
-#### Template Conventions
-
-1. **Header Comments:** Each template starts with a Jinja comment block describing its purpose and variables
-2. **Markdown Formatting:** Prompts use Markdown for structure (headers, lists, code blocks)
-3. **Default Values:** Use `{{ var | default(value) }}` for optional parameters
-4. **Conditional Sections:** Use `{% if %}` blocks for context-dependent content
-5. **Single vs Multi-Turn:**
-
-   - **Single-turn agents** (company_matcher, company_researcher): Use one combined prompt template
-   - **Multi-turn agents** (main_agent): Separate system prompt from user messages
+- Single-turn agents embed system + task in one template; main agent uses a system-only template and appends user messages from state.
+- Templates take only the runtime variables they need (e.g., `company_name`, `frontend_context`, `classification_summary`).
 
 Example single-turn template:
 
