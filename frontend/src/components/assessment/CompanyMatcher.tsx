@@ -39,7 +39,8 @@ interface CompanyMatcherProps {
   onStartResearch: (companyName: string) => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
 
 // Extract domain from URL for cleaner display
 function extractDomain(url: string): string {

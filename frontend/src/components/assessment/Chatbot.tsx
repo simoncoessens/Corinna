@@ -17,7 +17,8 @@ interface ChatbotProps {
   context?: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
 
 export function Chatbot({ context }: ChatbotProps) {
   const [messages, setMessages] = useState<Message[]>([
