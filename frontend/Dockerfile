@@ -23,8 +23,9 @@ COPY . .
 
 # Set build-time environment variable for API URL
 # This will be used during the build process for static optimization
+# Default to production backend URL, but can be overridden via build arg
 ARG NEXT_PUBLIC_API_URL=https://snip-tool-backend.onrender.com
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Build Next.js application
 RUN npm run build

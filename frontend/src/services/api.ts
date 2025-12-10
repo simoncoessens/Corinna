@@ -20,8 +20,10 @@ import type {
 // Configuration
 // =============================================================================
 
+// Get API URL from environment variable (set at build time)
+// Default to production backend URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
 
 // =============================================================================
 // Base Fetch Utilities
