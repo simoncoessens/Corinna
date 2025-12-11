@@ -39,5 +39,7 @@ class QuestionResearchState(MessagesState):
     question: str
     section: str
     company_name: str
+    relevant_articles: list[str] = []
+    rationale: Optional[str] = None
     research_summary: Optional[str] = None
     completed_answers: List[dict] = []

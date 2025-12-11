@@ -86,11 +86,24 @@ async def research_agent(
     # Prepare messages
     messages = state.get("messages", [])
     if not messages:
+        # Build short legal context from relevant_articles for this sub-question
+        articles = state.get("relevant_articles") or []
+        short_refs: list[str] = []
+        for ref in articles[:2]:
+            # Normalise whitespace and truncate to keep prompt compact
+            snippet = " ".join(str(ref).strip().splitlines())[:400]
+            if snippet:
+                short_refs.append(snippet)
+        legal_context = "\n".join(short_refs) if short_refs else ""
+
         # Initial prompt
         prompt = load_prompt(
             "researcher.jinja",
             company_name=state["company_name"],
             question=state["question"],
+            section=state.get("section"),
+            legal_context=legal_context or None,
+            rationale=state.get("rationale"),
             max_iterations=cfg.max_research_iterations,
         )
         messages = [HumanMessage(content=prompt)]
@@ -252,6 +265,8 @@ def dispatch_research(state: CompanyResearchState) -> List[Send]:
             {
                 "question": sq["question"],
                 "section": sq["section"],
+                "relevant_articles": sq.get("relevant_articles", []),
+                "rationale": sq.get("rationale"),
                 "company_name": company_name,
                 "messages": []
             }

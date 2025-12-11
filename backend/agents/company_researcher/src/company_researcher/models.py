@@ -11,7 +11,10 @@ class SubQuestion(BaseModel):
 
     section: str
     question: str
+    # Short list of relevant legal references (articles/recitals) from the CSV
     relevant_articles: List[str] = []
+    # Optional rationale text from the CSV ("Why and what" column)
+    rationale: str | None = None
 
     def build_prompt(self, company_name: str) -> str:
         """Build a compact research prompt."""
