@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FileSearch, Globe, Check } from "lucide-react";
+import { motion } from "framer-motion";
+import { FileSearch, Check, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   StreamEvent,
@@ -22,7 +22,10 @@ interface DeepResearchProps {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:8001"
+    : process.env.NEXT_PUBLIC_API_URL ||
+      "https://snip-tool-backend.onrender.com";
 
 function extractDomain(url: string): string {
   try {
@@ -32,12 +35,22 @@ function extractDomain(url: string): string {
   }
 }
 
-const MAX_VISIBLE_SOURCES = 4;
-// Expected number of research questions from the CSV parser
-const EXPECTED_QUESTIONS = 17;
-// Progress phases: research (0-60%), summarization (60-95%), finalization (95-100%)
-const RESEARCH_PHASE_MAX = 60;
-const SUMMARIZATION_PHASE_MAX = 95;
+const MAX_VISIBLE_SOURCES = 6;
+
+const PHASE_CONFIG = {
+  research: {
+    label: "Researching",
+    description: "Gathering information from the web",
+  },
+  summarization: {
+    label: "Analyzing",
+    description: "Processing and synthesizing findings",
+  },
+  finalizing: {
+    label: "Finalizing",
+    description: "Preparing your compliance report",
+  },
+};
 
 export function DeepResearch({
   companyName,
@@ -45,21 +58,28 @@ export function DeepResearch({
   onError,
 }: DeepResearchProps) {
   const [sources, setSources] = useState<SearchSource[]>([]);
-  const [visibleSources, setVisibleSources] = useState<SearchSource[]>([]);
-  const [totalSourceCount, setTotalSourceCount] = useState(0);
-  const [currentSection, setCurrentSection] = useState<string>("Initializing");
-  const [isSearching, setIsSearching] = useState(true);
-  const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<
     "research" | "summarization" | "finalizing"
   >("research");
   const searchCountRef = useRef(0);
   const llmCountRef = useRef(0);
+  const researchPhaseComplete = useRef(false);
 
-  useEffect(() => {
-    const lastFour = sources.slice(-MAX_VISIBLE_SOURCES);
-    setVisibleSources(lastFour);
-  }, [sources]);
+  // Keep newest unique sources (prefer latest when duplicate URLs appear)
+  const dedupeSources = useCallback((list: SearchSource[]) => {
+    const seen = new Set<string>();
+    const ordered: SearchSource[] = [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const s = list[i];
+      if (seen.has(s.url)) continue;
+      seen.add(s.url);
+      ordered.push(s);
+    }
+    return ordered.reverse();
+  }, []);
+
+  // Get last N unique sources for display
+  const visibleSources = dedupeSources(sources).slice(-MAX_VISIBLE_SOURCES);
 
   const runResearch = useCallback(async () => {
     try {
@@ -99,61 +119,33 @@ export function DeepResearch({
               const event = JSON.parse(data) as StreamEvent;
 
               switch (event.type) {
-                case "tool_start":
-                  if (event.name === "web_search") {
-                    setIsSearching(true);
-                  }
-                  break;
                 case "tool_end":
                   const toolEndEvent = event as ToolEndEvent;
                   if (
                     toolEndEvent.name === "web_search" &&
                     toolEndEvent.sources
                   ) {
-                    setSources((prev) => {
-                      const existingUrls = new Set(prev.map((s) => s.url));
-                      const newSources = toolEndEvent.sources!.filter(
-                        (s) => !existingUrls.has(s.url)
-                      );
-                      setTotalSourceCount((c) => c + newSources.length);
-                      return [...prev, ...newSources];
-                    });
-                    searchCountRef.current++;
-                    // Research phase: 0-60% based on web searches
-                    const searchProgress = Math.min(
-                      (searchCountRef.current / EXPECTED_QUESTIONS) *
-                        RESEARCH_PHASE_MAX,
-                      RESEARCH_PHASE_MAX
+                    setSources((prev) =>
+                      dedupeSources([...prev, ...(toolEndEvent.sources ?? [])])
                     );
-                    setProgress(searchProgress);
-                    setPhase("research");
+                    searchCountRef.current++;
                   }
-                  setIsSearching(false);
                   break;
                 case "llm_start":
-                  // Track summarization LLM calls for progress (60-95%)
                   llmCountRef.current++;
-                  // After research phase, LLM calls are for summarization
-                  if (searchCountRef.current >= EXPECTED_QUESTIONS * 0.8) {
-                    setPhase("summarization");
-                    setIsSearching(false);
-                    // Calculate summarization progress (each question gets summarized)
-                    const summarizationProgress = Math.min(
-                      RESEARCH_PHASE_MAX +
-                        (llmCountRef.current / (EXPECTED_QUESTIONS * 2)) *
-                          (SUMMARIZATION_PHASE_MAX - RESEARCH_PHASE_MAX),
-                      SUMMARIZATION_PHASE_MAX
-                    );
-                    setProgress(summarizationProgress);
+                  if (
+                    searchCountRef.current >= 30 &&
+                    !researchPhaseComplete.current
+                  ) {
+                    if (llmCountRef.current > searchCountRef.current) {
+                      researchPhaseComplete.current = true;
+                      setPhase("summarization");
+                    }
                   }
                   break;
                 case "node_start":
-                  if (event.chain?.includes("research")) {
-                    setCurrentSection("Researching questions");
-                  }
                   if (event.chain?.includes("finalize")) {
                     setPhase("finalizing");
-                    setProgress(SUMMARIZATION_PHASE_MAX);
                   }
                   break;
                 case "result":
@@ -161,7 +153,6 @@ export function DeepResearch({
                     event as ResultEvent<CompanyResearchResult>
                   ).data;
                   setPhase("finalizing");
-                  setProgress(100);
                   setTimeout(() => {
                     onComplete(resultData);
                   }, 500);
@@ -186,151 +177,183 @@ export function DeepResearch({
   }, [runResearch]);
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-md mx-auto">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center"
       >
-        {/* Header */}
+        {/* Animated header icon */}
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-14 h-14 bg-[#0a0a0a] flex items-center justify-center mb-6"
+          className="relative w-20 h-20 mb-8"
         >
-          <FileSearch className="w-6 h-6 text-white" />
+          {/* Pulsing rings */}
+          <motion.div
+            className="absolute inset-0 border border-[#e7e5e4] rounded-full"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="absolute inset-0 border border-[#e7e5e4] rounded-full"
+            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.3,
+            }}
+          />
+          {/* Center icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-14 h-14 bg-[#0a0a0a] flex items-center justify-center">
+              <FileSearch className="w-6 h-6 text-white" />
+            </div>
+          </div>
         </motion.div>
 
-        <h2 className="font-serif text-2xl text-[#0a0a0a] mb-1">
+        <h2 className="font-serif text-2xl text-[#0a0a0a] mb-2">
           Deep Research
         </h2>
-        <p className="font-sans text-sm text-[#78716c] mb-6">
-          Analyzing &quot;{companyName}&quot; for DSA compliance
-        </p>
+        <p className="font-sans text-sm text-[#78716c] mb-2">{companyName}</p>
 
-        {/* Progress bar */}
-        <div className="w-full h-1 bg-[#e7e5e4] mb-6">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5 }}
-            className="h-full bg-[#0a0a0a]"
-          />
-        </div>
+        {/* Phase description */}
+        <motion.p
+          key={phase}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="font-sans text-xs text-[#a8a29e] mb-8"
+        >
+          {PHASE_CONFIG[phase].description}
+        </motion.p>
 
-        {/* Sources Panel */}
+        {/* Main card */}
         <div className="w-full border border-[#e7e5e4] bg-white">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+          {/* Sources header */}
+          <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
-              Sources
+              Sources analyzed
             </span>
-            <motion.div
-              animate={{ opacity: [1, 0.4, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-              className="flex items-center gap-2"
+            <motion.span
+              key={sources.length}
+              initial={{ scale: 1.2 }}
+              animate={{ scale: 1 }}
+              className="font-mono text-sm font-medium text-[#0a0a0a]"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
-                className="w-3 h-3 border border-[#0a0a0a] border-t-transparent"
-              />
-              <span className="font-mono text-[10px] text-[#57534e]">
-                {phase === "research" && isSearching && "Searching"}
-                {phase === "research" && !isSearching && "Processing"}
-                {phase === "summarization" && "Summarizing"}
-                {phase === "finalizing" && "Finalizing"}
-              </span>
-            </motion.div>
+              {sources.length}
+            </motion.span>
           </div>
 
           {/* Sources list */}
-          <div className="h-[208px] relative overflow-hidden">
-            <AnimatePresence mode="popLayout">
-              {visibleSources.map((source) => (
+          <div className="min-h-[216px]">
+            {visibleSources.length === 0 ? (
+              <div className="h-[216px] flex flex-col items-center justify-center">
                 <motion.div
-                  key={source.url}
-                  initial={{ opacity: 0, y: -20, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: 52 }}
-                  exit={{ opacity: 0, y: 20, height: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="px-4 flex items-center gap-3 border-b border-[#e7e5e4] last:border-b-0"
-                  style={{ height: 52 }}
-                >
-                  <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center flex-shrink-0">
-                    <Globe className="w-3 h-3 text-[#78716c]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {source.title && (
-                      <p className="font-sans text-sm text-[#0a0a0a] truncate">
-                        {source.title}
-                      </p>
-                    )}
-                    <p className="font-mono text-[11px] text-[#78716c] truncate">
-                      {extractDomain(source.url)}
-                    </p>
-                  </div>
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.2 }}
-                    className="w-4 h-4 bg-[#dcfce7] flex items-center justify-center flex-shrink-0"
-                  >
-                    <Check className="w-2.5 h-2.5 text-[#16a34a]" />
-                  </motion.div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {visibleSources.length === 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <motion.div
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
                   className="flex gap-1 mb-3"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
                 >
-                  <div className="w-1 h-4 bg-[#e7e5e4]" />
-                  <div className="w-1 h-4 bg-[#e7e5e4]" />
-                  <div className="w-1 h-4 bg-[#e7e5e4]" />
+                  <div className="w-1.5 h-1.5 bg-[#0a0a0a] rounded-full" />
+                  <div className="w-1.5 h-1.5 bg-[#78716c] rounded-full" />
+                  <div className="w-1.5 h-1.5 bg-[#a8a29e] rounded-full" />
                 </motion.div>
-                <span className="font-mono text-[10px] text-[#a8a29e] uppercase tracking-wider">
-                  Initializing research
+                <span className="font-mono text-[11px] text-[#a8a29e]">
+                  Searching for sources...
                 </span>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#f5f5f4]">
+                {visibleSources.map((source, i) => (
+                  <motion.div
+                    key={`${source.url}-${i}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="px-5 py-3 flex items-center gap-3"
+                  >
+                    <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+                      <Globe className="w-3 h-3 text-[#78716c]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {source.title && (
+                        <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5">
+                          {source.title}
+                        </p>
+                      )}
+                      <p className="font-mono text-[11px] text-[#78716c] truncate">
+                        {extractDomain(source.url)}
+                      </p>
+                    </div>
+                    <div className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 text-[#16a34a]" />
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div className="px-4 py-2 border-t border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-            <span className="font-mono text-[10px] text-[#a8a29e]">
-              {totalSourceCount} source{totalSourceCount !== 1 ? "s" : ""}{" "}
-              analyzed
-            </span>
-            <span className="font-mono text-[10px] text-[#57534e]">
-              {Math.round(progress)}%
-            </span>
-          </div>
-        </div>
+          {/* Phase indicators footer */}
+          <div className="px-5 py-4 border-t border-[#e7e5e4] bg-[#fafaf9]">
+            <div className="flex items-center justify-center gap-3">
+              {(["research", "summarization", "finalizing"] as const).map(
+                (p, i) => {
+                  const isComplete =
+                    (p === "research" && phase !== "research") ||
+                    (p === "summarization" && phase === "finalizing");
+                  const isCurrent = p === phase;
 
-        {/* Section indicators */}
-        <div className="mt-6 flex gap-4">
-          {["Scope", "Size", "Type"].map((section, i) => (
-            <div key={section} className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-2 h-2",
-                  progress > (i + 1) * 30 ? "bg-[#0a0a0a]" : "bg-[#e7e5e4]"
-                )}
-              />
-              <span className="font-mono text-[10px] text-[#78716c]">
-                {section}
-              </span>
+                  return (
+                    <div key={p} className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
+                            isComplete
+                              ? "bg-[#0a0a0a]"
+                              : isCurrent
+                              ? "bg-[#0a0a0a]"
+                              : "bg-[#e7e5e4]"
+                          )}
+                        >
+                          {isComplete ? (
+                            <Check className="w-3.5 h-3.5 text-white" />
+                          ) : isCurrent ? (
+                            <motion.div
+                              className="w-2 h-2 bg-white rounded-full"
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 1, repeat: Infinity }}
+                            />
+                          ) : (
+                            <div className="w-2 h-2 bg-[#a8a29e] rounded-full" />
+                          )}
+                        </div>
+                        <span
+                          className={cn(
+                            "font-mono text-[10px] uppercase tracking-wider transition-colors duration-300",
+                            isCurrent || isComplete
+                              ? "text-[#0a0a0a]"
+                              : "text-[#a8a29e]"
+                          )}
+                        >
+                          {PHASE_CONFIG[p].label}
+                        </span>
+                      </div>
+                      {i < 2 && (
+                        <div
+                          className={cn(
+                            "w-8 h-px transition-colors duration-300",
+                            isComplete ? "bg-[#0a0a0a]" : "bg-[#e7e5e4]"
+                          )}
+                        />
+                      )}
+                    </div>
+                  );
+                }
+              )}
             </div>
-          ))}
+          </div>
         </div>
       </motion.div>
     </div>

@@ -9,6 +9,7 @@ import {
   AlertCircle,
   RotateCcw,
   Globe,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,10 @@ interface CompanyMatcherProps {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:8001"
+    : process.env.NEXT_PUBLIC_API_URL ||
+      "https://snip-tool-backend.onrender.com";
 
 // Extract domain from URL for cleaner display
 function extractDomain(url: string): string {
@@ -277,24 +281,12 @@ export function CompanyMatcher({
                 <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
                   Sources
                 </span>
-                <motion.div
-                  animate={{ opacity: [1, 0.4, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                  className="flex items-center gap-2"
-                >
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                    className="w-3 h-3 border border-[#0a0a0a] border-t-transparent"
-                  />
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 text-[#0a0a0a] animate-spin" />
                   <span className="font-mono text-[10px] text-[#57534e]">
                     {isSearching ? "Searching" : "Processing"}
                   </span>
-                </motion.div>
+                </div>
               </div>
 
               {/* Sources - Fixed height container */}
@@ -314,7 +306,7 @@ export function CompanyMatcher({
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.1 }}
-                        className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center flex-shrink-0"
+                        className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0"
                       >
                         <Globe className="w-3 h-3 text-[#78716c]" />
                       </motion.div>
@@ -332,7 +324,7 @@ export function CompanyMatcher({
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.2 }}
-                        className="w-4 h-4 bg-[#dcfce7] flex items-center justify-center flex-shrink-0"
+                        className="w-4 h-4 bg-[#dcfce7] flex items-center justify-center shrink-0"
                       >
                         <Check className="w-2.5 h-2.5 text-[#16a34a]" />
                       </motion.div>
@@ -440,7 +432,7 @@ export function CompanyMatcher({
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center shrink-0">
                           <Building2
                             className="w-5 h-5 text-[#57534e]"
                             strokeWidth={1.5}

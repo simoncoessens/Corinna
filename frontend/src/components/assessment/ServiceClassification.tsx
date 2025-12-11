@@ -191,50 +191,6 @@ export function ServiceClassification({
         </p>
       </motion.div>
 
-      {/* Progress Steps */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="flex justify-center gap-1 mb-8"
-      >
-        {(
-          [
-            "extracting",
-            "classifying",
-            "analyzing",
-            "generating",
-            "complete",
-          ] as ClassificationStage[]
-        ).map((s, i) => {
-          const stages: ClassificationStage[] = [
-            "extracting",
-            "classifying",
-            "analyzing",
-            "generating",
-            "complete",
-          ];
-          const currentIdx = stages.indexOf(stage);
-          const stepIdx = i;
-          const isActive = stepIdx === currentIdx;
-          const isCompleted = stepIdx < currentIdx;
-
-          return (
-            <motion.div
-              key={s}
-              animate={{
-                backgroundColor: isCompleted
-                  ? "#0a0a0a"
-                  : isActive
-                  ? "#b8860b"
-                  : "#e7e5e4",
-              }}
-              className="h-1.5 w-12 rounded-full"
-            />
-          );
-        })}
-      </motion.div>
-
       {/* Streaming Text Display */}
       {isProcessing && streamedText && (
         <motion.div
@@ -242,11 +198,16 @@ export function ServiceClassification({
           animate={{ opacity: 1, height: "auto" }}
           className="mb-8"
         >
-          <div className="bg-[#f5f5f4] border border-[#e7e5e4] rounded-lg overflow-hidden">
+          <div className="bg-[#f5f5f4] border border-[#e7e5e4] overflow-hidden">
             <div className="px-4 py-2 bg-[#0a0a0a] text-white flex items-center gap-2">
-              <Zap className="w-3.5 h-3.5" />
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                <Zap className="w-3.5 h-3.5" />
+              </motion.div>
               <span className="font-mono text-xs uppercase tracking-wider">
-                Analysis Stream
+                Thinking
               </span>
             </div>
             <div
@@ -416,7 +377,7 @@ export function ServiceClassification({
                   onClick={handleContinue}
                   className="min-w-48"
                 >
-                  View Full Compliance Report
+                  Continue to Compliance Report
                 </Button>
               </motion.div>
             )}

@@ -284,17 +284,6 @@ export default function AssessmentPage() {
     }
   }, [researchStep, currentPhase]);
 
-  // Render the compliance dashboard if in report phase
-  if (currentPhase === "report" && complianceReport) {
-    return (
-      <ComplianceDashboard
-        report={complianceReport}
-        companyProfile={companyProfile}
-        onBack={handleBackFromDashboard}
-      />
-    );
-  }
-
   return (
     <motion.main
       initial={{ opacity: 0 }}
@@ -331,7 +320,11 @@ export default function AssessmentPage() {
         >
           <div
             className={`w-full mx-auto ${
-              currentPhase === "classify" ? "max-w-4xl" : "max-w-2xl"
+              currentPhase === "report"
+                ? "max-w-6xl"
+                : currentPhase === "classify"
+                ? "max-w-4xl"
+                : "max-w-2xl"
             }`}
           >
             {/* Phase indicator */}
@@ -470,6 +463,23 @@ export default function AssessmentPage() {
                       onError={handleClassificationError}
                     />
                   )}
+                </motion.div>
+              )}
+
+              {/* Report Phase */}
+              {currentPhase === "report" && complianceReport && (
+                <motion.div
+                  key="report"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="w-full"
+                >
+                  <ComplianceDashboard
+                    report={complianceReport}
+                    companyProfile={companyProfile}
+                    onBack={handleBackFromDashboard}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

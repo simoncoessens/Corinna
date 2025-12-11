@@ -21,9 +21,18 @@ import type {
 // =============================================================================
 
 // Get API URL from environment variable (set at build time)
-// Default to production backend URL
+// - In development (npm run dev), ALWAYS default to local backend (ignores hosted env var)
+// - In production, default to hosted backend but allow override via NEXT_PUBLIC_API_URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:8001"
+    : process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+
+// Helpful debug log (visible in browser devtools console)
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line no-console
+  console.log("[SNIP] Using API base URL:", API_BASE_URL);
+}
 
 // =============================================================================
 // Base Fetch Utilities

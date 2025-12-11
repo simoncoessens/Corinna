@@ -1,10 +1,36 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2 } from "lucide-react";
+import createDOMPurify from "dompurify";
+import { marked } from "marked";
 import { cn } from "@/lib/utils";
 import type { StreamEvent } from "@/types/api";
+
+const toolLabels: Record<string, string> = {
+  web_search: "Searching the web",
+  retrieve_dsa_knowledge: "Reading the DSA document",
+};
+
+const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
+
+function MarkdownContent({ content }: { content: string }) {
+  const sanitizedHtml = useMemo(() => {
+    const rawHtml = marked.parse(content ?? "", {
+      breaks: true,
+    }) as string;
+    // Fallback to raw HTML if purifier not ready (should only happen during SSR)
+    return purifier ? purifier.sanitize(rawHtml) : rawHtml;
+  }, [content]);
+
+  return (
+    <div
+      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-pre-wrap"
+      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+    />
+  );
+}
 
 interface Message {
   id: string;
@@ -18,7 +44,10 @@ interface ChatbotProps {
 }
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:8001"
+    : process.env.NEXT_PUBLIC_API_URL ||
+      "https://snip-tool-backend.onrender.com";
 
 export function Chatbot({ context }: ChatbotProps) {
   const [messages, setMessages] = useState<Message[]>([
@@ -33,6 +62,7 @@ export function Chatbot({ context }: ChatbotProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [currentTool, setCurrentTool] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -95,9 +125,21 @@ export function Chatbot({ context }: ChatbotProps) {
             try {
               const event = JSON.parse(data) as StreamEvent;
 
-              if (event.type === "token") {
-                fullContent += event.content;
-                setStreamingContent(fullContent);
+              switch (event.type) {
+                case "token":
+                  fullContent += event.content;
+                  setStreamingContent(fullContent);
+                  break;
+                case "tool_start":
+                  setCurrentTool(event.name);
+                  break;
+                case "tool_end":
+                  setCurrentTool(null);
+                  break;
+                case "error":
+                case "done":
+                  setCurrentTool(null);
+                  break;
               }
             } catch {
               // Skip invalid JSON
@@ -127,13 +169,14 @@ export function Chatbot({ context }: ChatbotProps) {
     } finally {
       setIsStreaming(false);
       setStreamingContent("");
+      setCurrentTool(null);
     }
   };
 
   return (
     <div className="flex flex-col h-full w-full bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9]">
+      <div className="shrink-0 px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9]">
         <h3 className="font-sans font-medium text-sm text-[#0a0a0a]">
           Assistant
         </h3>
@@ -161,12 +204,36 @@ export function Chatbot({ context }: ChatbotProps) {
                     : "bg-[#f5f5f4] text-[#0a0a0a]"
                 )}
               >
-                <p className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
-                  {message.content}
-                </p>
+                {message.role === "assistant" ? (
+                  <MarkdownContent content={message.content} />
+                ) : (
+                  <p className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
+                    {message.content}
+                  </p>
+                )}
               </div>
             </motion.div>
           ))}
+        </AnimatePresence>
+
+        {/* Tool indicator */}
+        <AnimatePresence>
+          {currentTool && (
+            <motion.div
+              key={currentTool}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="flex gap-2 justify-start"
+            >
+              <div className="max-w-[85%] px-3 py-2 bg-[#eef2ff] text-[#312e81] flex items-center gap-2 rounded-sm">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="font-mono text-[11px] uppercase tracking-wide">
+                  {toolLabels[currentTool] || `Using ${currentTool}`}
+                </span>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Streaming message */}
@@ -178,10 +245,10 @@ export function Chatbot({ context }: ChatbotProps) {
           >
             <div className="max-w-[85%] px-3 py-2 bg-[#f5f5f4]">
               {streamingContent ? (
-                <p className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-pre-wrap">
-                  {streamingContent}
-                  <span className="inline-block w-1 h-4 bg-[#0a0a0a] ml-0.5 animate-pulse" />
-                </p>
+                <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-pre-wrap">
+                  <MarkdownContent content={streamingContent} />
+                  <span className="inline-block w-1 h-4 bg-[#0a0a0a] ml-0.5 animate-pulse align-middle" />
+                </div>
               ) : (
                 <Loader2 className="w-4 h-4 text-[#78716c] animate-spin" />
               )}
@@ -193,7 +260,7 @@ export function Chatbot({ context }: ChatbotProps) {
       </div>
 
       {/* Input */}
-      <div className="flex-shrink-0 p-3 border-t border-[#e7e5e4]">
+      <div className="shrink-0 p-3 border-t border-[#e7e5e4]">
         <div className="flex gap-2">
           <input
             type="text"

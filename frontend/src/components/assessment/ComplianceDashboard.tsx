@@ -25,6 +25,8 @@ import {
   ListChecks,
   ArrowLeft,
 } from "lucide-react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui";
 import type {
   ComplianceReport,
@@ -84,72 +86,48 @@ export function ComplianceDashboard({
   );
 
   return (
-    <div className="min-h-screen bg-[#fafaf9]">
+    <div className="w-full">
       {/* Header */}
-      <header className="bg-[#0a0a0a] text-white">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              {onBack && (
-                <button
-                  onClick={onBack}
-                  className="flex items-center gap-1 text-[#a8a29e] hover:text-white text-sm mb-2 transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Assessment
-                </button>
-              )}
-              <h1 className="font-serif text-2xl md:text-3xl">
-                DSA Compliance Dashboard
-              </h1>
-              <p className="text-[#a8a29e] mt-1">{report.company_name}</p>
-            </div>
-            <div className="hidden md:flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-xs text-[#a8a29e] uppercase tracking-wider">
-                  Classification
-                </div>
-                <div className="font-mono text-sm text-[#b8860b]">
-                  {
-                    report.classification.service_classification
-                      .service_category
-                  }
-                </div>
-              </div>
-              <div className="w-px h-10 bg-[#333]" />
-              <div className="text-right">
-                <div className="text-xs text-[#a8a29e] uppercase tracking-wider">
-                  Applicable Articles
-                </div>
-                <div className="font-mono text-sm text-white">
-                  {applicableObligations.length}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <nav className="flex gap-1 mt-6 overflow-x-auto pb-px">
-            {tabConfig.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "bg-white text-[#0a0a0a] rounded-t-lg"
-                    : "text-[#a8a29e] hover:text-white"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+      <div className="flex items-start gap-4 mb-6">
+        <div className="w-12 h-12 bg-[#f5f5f4] border border-[#e7e5e4] flex items-center justify-center shrink-0">
+          <FileText className="w-6 h-6 text-[#57534e]" strokeWidth={1.5} />
         </div>
-      </header>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-1">
+            <h2 className="font-serif text-xl text-[#0a0a0a]">
+              Compliance Report
+            </h2>
+            <span className="font-mono text-[10px] text-[#b8860b] uppercase tracking-wider px-2 py-0.5 bg-[#b8860b]/10 border border-[#b8860b]/20">
+              {report.classification.service_classification.service_category}
+            </span>
+          </div>
+          <p className="font-sans text-sm text-[#57534e]">
+            {report.company_name} · {applicableObligations.length} applicable
+            obligations
+          </p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-[#e7e5e4]">
+        {tabConfig.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-all cursor-pointer whitespace-nowrap border-b-2 -mb-px ${
+              activeTab === tab.id
+                ? "border-[#0a0a0a] text-[#0a0a0a]"
+                : "border-transparent text-[#78716c] hover:text-[#0a0a0a]"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <div className="pb-4">
         <AnimatePresence mode="wait">
           {activeTab === "overview" && (
             <OverviewTab
@@ -181,7 +159,7 @@ export function ComplianceDashboard({
             <DownloadTab key="download" report={report} />
           )}
         </AnimatePresence>
-      </main>
+      </div>
     </div>
   );
 }
@@ -198,17 +176,23 @@ function OverviewTab({
   applicableCount,
   onViewObligation,
 }: OverviewTabProps) {
+  const summaryHtml = useMemo(() => {
+    return DOMPurify.sanitize(
+      marked.parse(report.summary || "", { async: false }) as string
+    );
+  }, [report.summary]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="space-y-8"
+      className="space-y-4"
     >
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard
-          icon={<Globe className="w-5 h-5" />}
+          icon={<Globe className="w-4 h-4" />}
           title="Territorial Scope"
           value={
             report.classification.territorial_scope.is_in_scope
@@ -223,14 +207,14 @@ function OverviewTab({
           subtitle="Article 2 DSA"
         />
         <SummaryCard
-          icon={<Server className="w-5 h-5" />}
+          icon={<Server className="w-4 h-4" />}
           title="Service Category"
           value={report.classification.service_classification.service_category}
           status="neutral"
           subtitle="Articles 3-6 DSA"
         />
         <SummaryCard
-          icon={<Users className="w-5 h-5" />}
+          icon={<Users className="w-4 h-4" />}
           title="Size Designation"
           value={
             report.classification.size_designation.is_vlop_vlose
@@ -250,69 +234,68 @@ function OverviewTab({
       </div>
 
       {/* Executive Summary */}
-      <div className="bg-white border border-[#e7e5e4] rounded-lg p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5 text-[#b8860b]" />
-          <h2 className="font-serif text-xl text-[#0a0a0a]">
+      <div className="bg-white border border-[#e7e5e4] p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-[#57534e]" />
+          <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
             Executive Summary
-          </h2>
+          </span>
         </div>
-        <div className="prose prose-stone max-w-none">
-          <p className="text-[#57534e] leading-relaxed whitespace-pre-wrap">
-            {report.summary}
-          </p>
-        </div>
+        <div
+          className="prose prose-sm max-w-none text-[#57534e]"
+          dangerouslySetInnerHTML={{ __html: summaryHtml }}
+        />
       </div>
 
       {/* Key Obligations Preview */}
-      <div className="bg-white border border-[#e7e5e4] rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#e7e5e4] flex items-center justify-between">
+      <div className="bg-white border border-[#e7e5e4]">
+        <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Gavel className="w-5 h-5 text-[#0a0a0a]" />
-            <h2 className="font-serif text-xl text-[#0a0a0a]">
+            <Gavel className="w-4 h-4 text-[#57534e]" />
+            <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
               Key Obligations
-            </h2>
+            </span>
           </div>
-          <span className="bg-[#0a0a0a] text-white px-3 py-1 rounded-full text-xs font-medium">
+          <span className="font-mono text-xs text-[#57534e]">
             {applicableCount} applicable
           </span>
         </div>
-        <div className="divide-y divide-[#e7e5e4]">
+        <div className="divide-y divide-[#f5f5f4]">
           {report.obligations
             .filter((o) => o.applies)
             .slice(0, 5)
-            .map((obligation, idx) => (
+            .map((obligation) => (
               <button
                 key={obligation.article}
                 onClick={() => onViewObligation(obligation)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#fafaf9] transition-colors cursor-pointer text-left"
+                className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-[#fafaf9] transition-colors cursor-pointer text-left"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-[#003399]/10 flex items-center justify-center rounded">
-                    <span className="font-mono text-sm text-[#003399] font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-[#003399]/5 border border-[#003399]/10 flex items-center justify-center">
+                    <span className="font-mono text-xs text-[#003399]">
                       {obligation.article}
                     </span>
                   </div>
                   <div>
-                    <h3 className="font-medium text-[#0a0a0a]">
+                    <h3 className="font-sans text-sm font-medium text-[#0a0a0a]">
                       {obligation.title}
                     </h3>
-                    <p className="text-sm text-[#78716c] line-clamp-1 max-w-md">
+                    <p className="text-xs text-[#78716c] line-clamp-1 max-w-md">
                       {obligation.implications}
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-[#a8a29e]" />
+                <ChevronRight className="w-4 h-4 text-[#a8a29e]" />
               </button>
             ))}
         </div>
         {applicableCount > 5 && (
-          <div className="px-6 py-3 bg-[#fafaf9] border-t border-[#e7e5e4]">
+          <div className="px-5 py-3 border-t border-[#e7e5e4]">
             <button
               onClick={() =>
                 onViewObligation(report.obligations.find((o) => o.applies)!)
               }
-              className="text-sm text-[#003399] hover:underline cursor-pointer"
+              className="font-mono text-[10px] text-[#003399] hover:underline cursor-pointer uppercase tracking-wider"
             >
               View all {applicableCount} obligations →
             </button>
@@ -339,23 +322,27 @@ function SummaryCard({
   status,
   subtitle,
 }: SummaryCardProps) {
-  const statusColors = {
-    success: "border-l-[#16a34a]",
-    error: "border-l-[#dc2626]",
-    warning: "border-l-[#b8860b]",
-    neutral: "border-l-[#0a0a0a]",
+  const statusBadgeColors = {
+    success: "bg-[#dcfce7] text-[#16a34a]",
+    error: "bg-[#fee2e2] text-[#dc2626]",
+    warning: "bg-[#b8860b]/10 text-[#b8860b]",
+    neutral: "bg-[#f5f5f4] text-[#57534e]",
   };
 
   return (
-    <div
-      className={`bg-white border border-[#e7e5e4] border-l-4 ${statusColors[status]} rounded-lg p-5`}
-    >
-      <div className="flex items-center gap-2 text-[#78716c] mb-2">
-        {icon}
-        <span className="text-sm">{title}</span>
+    <div className="bg-white border border-[#e7e5e4] p-4">
+      <div className="flex items-center gap-2 text-[#78716c] mb-3">
+        <div className="w-8 h-8 bg-[#f5f5f4] flex items-center justify-center">
+          {icon}
+        </div>
+        <span className="text-sm font-medium text-[#57534e]">{title}</span>
       </div>
-      <div className="font-serif text-xl text-[#0a0a0a] mb-1">{value}</div>
-      <div className="font-mono text-xs text-[#a8a29e] uppercase tracking-wider">
+      <div
+        className={`inline-block px-2.5 py-1 text-sm font-medium mb-2 ${statusBadgeColors[status]}`}
+      >
+        {value}
+      </div>
+      <div className="font-mono text-[10px] text-[#a8a29e] uppercase tracking-wider">
         {subtitle}
       </div>
     </div>
@@ -375,7 +362,7 @@ function ObligationsTab({
   onSelectObligation,
 }: ObligationsTabProps) {
   const [filter, setFilter] = useState<"all" | "applicable" | "not-applicable">(
-    "all"
+    "applicable"
   );
 
   const filteredObligations = useMemo(() => {
@@ -399,7 +386,7 @@ function ObligationsTab({
       {/* Obligations List */}
       <div className="flex-1">
         {/* Filters */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-1 mb-4 p-1 bg-[#f5f5f4] border border-[#e7e5e4] w-fit">
           {[
             { id: "all" as const, label: "All", count: obligations.length },
             {
@@ -416,10 +403,10 @@ function ObligationsTab({
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              className={`px-4 py-2 text-sm rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors cursor-pointer ${
                 filter === f.id
-                  ? "bg-[#0a0a0a] text-white"
-                  : "bg-white border border-[#e7e5e4] text-[#57534e] hover:bg-[#f5f5f4]"
+                  ? "bg-white text-[#0a0a0a] shadow-sm"
+                  : "text-[#78716c] hover:text-[#0a0a0a]"
               }`}
             >
               {f.label} ({f.count})
@@ -475,43 +462,45 @@ function ObligationCard({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-white border rounded-lg p-4 transition-all cursor-pointer ${
+      className={`w-full text-left bg-white border p-4 transition-all cursor-pointer ${
         isSelected
-          ? "border-[#003399] ring-2 ring-[#003399]/20"
+          ? "border-[#0a0a0a]"
           : "border-[#e7e5e4] hover:border-[#a8a29e]"
       }`}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3">
         <div
-          className={`w-12 h-12 flex items-center justify-center rounded ${
-            obligation.applies ? "bg-[#003399]/10" : "bg-[#f5f5f4]"
+          className={`w-10 h-10 flex items-center justify-center shrink-0 ${
+            obligation.applies
+              ? "bg-[#003399]/5 border border-[#003399]/10"
+              : "bg-[#f5f5f4]"
           }`}
         >
           <span
-            className={`font-mono text-sm font-medium ${
+            className={`font-mono text-[11px] ${
               obligation.applies ? "text-[#003399]" : "text-[#a8a29e]"
             }`}
           >
-            Art.{obligation.article}
+            {obligation.article}
           </span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-[#0a0a0a] truncate">
+            <h3 className="font-sans text-sm font-medium text-[#0a0a0a] truncate">
               {obligation.title}
             </h3>
             {obligation.applies ? (
-              <CheckCircle2 className="w-4 h-4 text-[#16a34a] shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#16a34a] shrink-0" />
             ) : (
-              <XCircle className="w-4 h-4 text-[#a8a29e] shrink-0" />
+              <XCircle className="w-3.5 h-3.5 text-[#a8a29e] shrink-0" />
             )}
           </div>
-          <p className="text-sm text-[#78716c] line-clamp-2">
+          <p className="text-xs text-[#78716c] line-clamp-2">
             {obligation.implications}
           </p>
           {obligation.applies && obligation.action_items.length > 0 && (
-            <div className="flex items-center gap-1 mt-2 text-xs text-[#b8860b]">
-              <ListChecks className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 mt-2 font-mono text-[10px] text-[#b8860b]">
+              <ListChecks className="w-3 h-3" />
               {obligation.action_items.length} action items
             </div>
           )}
@@ -529,32 +518,32 @@ interface ObligationDetailProps {
 
 function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
   return (
-    <div className="bg-white border border-[#e7e5e4] rounded-lg sticky top-6">
+    <div className="bg-white border border-[#e7e5e4] sticky top-6">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-[#e7e5e4]">
+      <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9]">
         <div className="flex items-center justify-between mb-2">
-          <span className="article-reference">
+          <span className="font-mono text-[10px] text-[#003399] uppercase tracking-wider bg-[#003399]/5 px-2 py-0.5">
             Article {obligation.article}
           </span>
           <button
             onClick={onClose}
-            className="text-[#78716c] hover:text-[#0a0a0a] cursor-pointer"
+            className="text-[#78716c] hover:text-[#0a0a0a] cursor-pointer text-lg leading-none"
           >
             ×
           </button>
         </div>
-        <h3 className="font-serif text-lg text-[#0a0a0a]">
+        <h3 className="font-sans text-sm font-medium text-[#0a0a0a]">
           {obligation.title}
         </h3>
         <div className="flex items-center gap-2 mt-2">
           {obligation.applies ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[#16a34a] bg-[#dcfce7] px-2 py-0.5 rounded-full">
-              <CheckCircle2 className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#16a34a] bg-[#dcfce7] px-2 py-0.5">
+              <CheckCircle2 className="w-2.5 h-2.5" />
               Applies
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-[#78716c] bg-[#f5f5f4] px-2 py-0.5 rounded-full">
-              <XCircle className="w-3 h-3" />
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#78716c] bg-[#f5f5f4] px-2 py-0.5">
+              <XCircle className="w-2.5 h-2.5" />
               Does Not Apply
             </span>
           )}
@@ -562,13 +551,13 @@ function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
       </div>
 
       {/* Content */}
-      <div className="p-5 space-y-5 max-h-[60vh] overflow-y-auto">
+      <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
         {/* Implications */}
         <div>
-          <h4 className="text-xs font-medium text-[#78716c] uppercase tracking-wider mb-2">
-            Implications for Your Organization
+          <h4 className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider mb-2">
+            Implications
           </h4>
-          <p className="text-sm text-[#57534e] leading-relaxed">
+          <p className="text-xs text-[#57534e] leading-relaxed">
             {obligation.implications}
           </p>
         </div>
@@ -576,21 +565,21 @@ function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
         {/* Action Items */}
         {obligation.applies && obligation.action_items.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-[#78716c] uppercase tracking-wider mb-3">
+            <h4 className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider mb-2">
               Required Actions
             </h4>
             <div className="space-y-2">
               {obligation.action_items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-3 p-3 bg-[#fafaf9] border border-[#e7e5e4] rounded"
+                  className="flex items-start gap-2 p-2 bg-[#fafaf9] border border-[#e7e5e4]"
                 >
-                  <div className="w-5 h-5 bg-[#b8860b]/10 flex items-center justify-center rounded-full shrink-0 mt-0.5">
-                    <span className="text-[10px] font-medium text-[#b8860b]">
+                  <div className="w-4 h-4 bg-[#b8860b]/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-[9px] font-medium text-[#b8860b]">
                       {idx + 1}
                     </span>
                   </div>
-                  <p className="text-sm text-[#57534e]">{item}</p>
+                  <p className="text-xs text-[#57534e]">{item}</p>
                 </div>
               ))}
             </div>
@@ -602,11 +591,11 @@ function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
           href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2065`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-[#003399] hover:underline"
+          className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#003399] hover:underline uppercase tracking-wider"
         >
-          <BookOpen className="w-4 h-4" />
-          View Article {obligation.article} in EUR-Lex
-          <ExternalLink className="w-3 h-3" />
+          <BookOpen className="w-3 h-3" />
+          View in EUR-Lex
+          <ExternalLink className="w-2.5 h-2.5" />
         </a>
       </div>
     </div>
@@ -625,15 +614,17 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+      className="grid grid-cols-1 lg:grid-cols-2 gap-4"
     >
       {/* Company Profile */}
-      <div className="bg-white border border-[#e7e5e4] rounded-lg p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Building2 className="w-5 h-5 text-[#0a0a0a]" />
-          <h2 className="font-serif text-xl text-[#0a0a0a]">Company Profile</h2>
+      <div className="bg-white border border-[#e7e5e4] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 className="w-4 h-4 text-[#57534e]" />
+          <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+            Company Profile
+          </span>
         </div>
-        <dl className="space-y-4">
+        <dl className="space-y-3">
           <InfoRow label="Company Name" value={report.company_name} />
           {companyProfile.description && (
             <InfoRow label="Description" value={companyProfile.description} />
@@ -654,14 +645,14 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
       </div>
 
       {/* DSA Classification */}
-      <div className="bg-white border border-[#e7e5e4] rounded-lg p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <Scale className="w-5 h-5 text-[#0a0a0a]" />
-          <h2 className="font-serif text-xl text-[#0a0a0a]">
+      <div className="bg-white border border-[#e7e5e4] p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Scale className="w-4 h-4 text-[#57534e]" />
+          <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
             DSA Classification
-          </h2>
+          </span>
         </div>
-        <dl className="space-y-4">
+        <dl className="space-y-3">
           <InfoRow
             label="Territorial Scope"
             value={
@@ -731,12 +722,12 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
 
       {/* Research Findings */}
       {companyProfile.research_answers && (
-        <div className="lg:col-span-2 bg-white border border-[#e7e5e4] rounded-lg p-6">
-          <div className="flex items-center gap-2 mb-6">
-            <FileText className="w-5 h-5 text-[#0a0a0a]" />
-            <h2 className="font-serif text-xl text-[#0a0a0a]">
+        <div className="lg:col-span-2 bg-white border border-[#e7e5e4] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-4 h-4 text-[#57534e]" />
+            <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
               Research Findings
-            </h2>
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {companyProfile.research_answers.geographical_scope && (
@@ -773,10 +764,10 @@ interface InfoRowProps {
 
 function InfoRow({ label, value, highlight }: InfoRowProps) {
   return (
-    <div className="flex justify-between items-start py-2 border-b border-[#e7e5e4] last:border-b-0">
-      <dt className="text-sm text-[#78716c]">{label}</dt>
+    <div className="flex justify-between items-start py-2 border-b border-[#f5f5f4] last:border-b-0">
+      <dt className="text-xs text-[#78716c]">{label}</dt>
       <dd
-        className={`text-sm text-right max-w-[60%] ${
+        className={`text-xs text-right max-w-[60%] ${
           highlight ? "text-[#b8860b] font-medium" : "text-[#0a0a0a]"
         }`}
       >
@@ -795,14 +786,16 @@ interface ResearchSectionProps {
 function ResearchSection({ title, answers }: ResearchSectionProps) {
   return (
     <div>
-      <h3 className="font-medium text-[#0a0a0a] mb-3">{title}</h3>
+      <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-3">
+        {title}
+      </h3>
       <div className="space-y-3">
         {answers.map((a, idx) => (
-          <div key={idx} className="text-sm">
-            <div className="text-[#78716c] mb-1">{a.question}</div>
-            <div className="text-[#0a0a0a]">{a.answer}</div>
+          <div key={idx}>
+            <div className="text-xs text-[#78716c] mb-1">{a.question}</div>
+            <div className="text-xs text-[#0a0a0a]">{a.answer}</div>
             <div
-              className={`text-xs mt-1 ${
+              className={`font-mono text-[10px] mt-1 ${
                 a.confidence === "High"
                   ? "text-[#16a34a]"
                   : a.confidence === "Medium"
@@ -876,37 +869,35 @@ function DownloadTab({ report }: DownloadTabProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="max-w-2xl mx-auto"
+      className="max-w-xl"
     >
-      <div className="text-center mb-8">
-        <h2 className="font-serif text-2xl text-[#0a0a0a] mb-2">
-          Download Compliance Report
-        </h2>
-        <p className="text-[#78716c]">
-          Export your DSA compliance assessment in various formats
-        </p>
+      <div className="mb-6">
+        <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+          Export Options
+        </span>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* PDF Download */}
-        <div className="bg-white border border-[#e7e5e4] rounded-lg p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#dc2626]/10 flex items-center justify-center rounded">
-              <FileText className="w-6 h-6 text-[#dc2626]" />
+        <div className="bg-white border border-[#e7e5e4] p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5 text-[#57534e]" />
             </div>
             <div className="flex-1">
-              <h3 className="font-medium text-[#0a0a0a] mb-1">PDF Report</h3>
-              <p className="text-sm text-[#78716c] mb-4">
-                Professional compliance report formatted for printing and
-                sharing
+              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1">
+                PDF Report
+              </h3>
+              <p className="text-xs text-[#78716c] mb-3">
+                Professional compliance report formatted for printing
               </p>
               <Button
                 variant="primary"
+                size="sm"
                 onClick={handleDownloadPDF}
                 loading={generating}
-                className="w-full sm:w-auto"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5" />
                 Generate PDF
               </Button>
             </div>
@@ -914,30 +905,36 @@ function DownloadTab({ report }: DownloadTabProps) {
         </div>
 
         {/* JSON Download */}
-        <div className="bg-white border border-[#e7e5e4] rounded-lg p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#b8860b]/10 flex items-center justify-center rounded">
-              <FileText className="w-6 h-6 text-[#b8860b]" />
+        <div className="bg-white border border-[#e7e5e4] p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+              <FileText className="w-5 h-5 text-[#57534e]" />
             </div>
             <div className="flex-1">
-              <h3 className="font-medium text-[#0a0a0a] mb-1">JSON Data</h3>
-              <p className="text-sm text-[#78716c] mb-4">
-                Machine-readable format for integration with other systems
+              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1">
+                JSON Data
+              </h3>
+              <p className="text-xs text-[#78716c] mb-3">
+                Machine-readable format for system integration
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleDownloadJSON}>
-                  <Download className="w-4 h-4" />
-                  Download JSON
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadJSON}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download
                 </Button>
-                <Button variant="ghost" onClick={handleCopyJSON}>
+                <Button variant="ghost" size="sm" onClick={handleCopyJSON}>
                   {copied ? (
                     <>
-                      <Check className="w-4 h-4" />
-                      Copied!
+                      <Check className="w-3.5 h-3.5" />
+                      Copied
                     </>
                   ) : (
                     <>
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-3.5 h-3.5" />
                       Copy
                     </>
                   )}
@@ -948,14 +945,13 @@ function DownloadTab({ report }: DownloadTabProps) {
         </div>
 
         {/* Report Preview */}
-        <div className="bg-[#0a0a0a] rounded-lg p-6 text-white">
-          <div className="flex items-center gap-2 mb-4">
-            <FileText className="w-4 h-4 text-[#b8860b]" />
-            <span className="font-mono text-xs uppercase tracking-wider text-[#a8a29e]">
-              Report Preview
+        <div className="bg-[#f5f5f4] border border-[#e7e5e4] p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+              Data Preview
             </span>
           </div>
-          <pre className="text-xs text-[#a8a29e] overflow-x-auto max-h-64">
+          <pre className="text-[10px] text-[#57534e] overflow-x-auto max-h-48 font-mono">
             {JSON.stringify(report, null, 2)}
           </pre>
         </div>
@@ -967,6 +963,7 @@ function DownloadTab({ report }: DownloadTabProps) {
 // PDF Content Generator
 function generatePDFContent(report: ComplianceReport): string {
   const applicableObligations = report.obligations.filter((o) => o.applies);
+  const notApplicableObligations = report.obligations.filter((o) => !o.applies);
 
   return `
 <!DOCTYPE html>
@@ -975,228 +972,598 @@ function generatePDFContent(report: ComplianceReport): string {
   <meta charset="UTF-8">
   <title>DSA Compliance Report - ${report.company_name}</title>
   <style>
-    @page { margin: 2cm; }
+    @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+    
+    @page { 
+      margin: 1.5cm 2cm; 
+      size: A4;
+    }
+    
+    :root {
+      --ink: #0a0a0a;
+      --paper: #fafaf9;
+      --parchment: #f5f5f4;
+      --border: #e7e5e4;
+      --stone: #78716c;
+      --muted: #a8a29e;
+      --accent: #b8860b;
+      --eu-blue: #003399;
+      --success: #16a34a;
+      --error: #dc2626;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
     body {
-      font-family: 'Times New Roman', Times, serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 10pt;
       line-height: 1.6;
-      color: #1a1a1a;
+      color: var(--ink);
+      background: white;
       max-width: 21cm;
       margin: 0 auto;
-      padding: 2cm;
     }
-    h1 { 
-      font-size: 24pt; 
-      border-bottom: 2px solid #003399; 
-      padding-bottom: 10px; 
+    
+    /* Header */
+    .header {
+      padding: 40px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 30px;
+    }
+    
+    .header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
       margin-bottom: 20px;
     }
-    h2 { 
-      font-size: 16pt; 
-      color: #003399; 
-      margin-top: 30px;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 5px;
+    
+    .logo {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 18pt;
+      color: var(--ink);
+      letter-spacing: -0.02em;
     }
-    h3 { font-size: 12pt; margin-top: 20px; }
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
+    
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--stone);
+      background: var(--parchment);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
     }
-    .header img { max-height: 50px; }
-    .meta {
-      background: #f5f5f4;
-      padding: 15px;
-      margin-bottom: 30px;
-      border-left: 4px solid #003399;
+    
+    .header h1 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 28pt;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
     }
-    .meta p { margin: 5px 0; }
+    
+    .header-meta {
+      font-size: 10pt;
+      color: var(--stone);
+    }
+    
+    .header-meta strong {
+      color: var(--ink);
+    }
+    
+    /* Section Labels */
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--stone);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .section-label::before {
+      content: '';
+      width: 12px;
+      height: 1px;
+      background: var(--border);
+    }
+    
+    /* Cards */
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    
+    .card-header {
+      background: var(--parchment);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      margin-bottom: 0;
+      border-bottom: none;
+    }
+    
+    .card-body {
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 16px;
+    }
+    
+    /* Classification Grid */
     .classification-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 15px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
       margin: 20px 0;
     }
+    
     .classification-card {
-      border: 1px solid #e7e5e4;
-      padding: 15px;
-      text-align: center;
+      border: 1px solid var(--border);
+      padding: 16px;
     }
-    .classification-card h4 {
-      font-size: 10pt;
-      color: #666;
-      margin: 0 0 10px 0;
+    
+    .classification-card .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--stone);
+      margin-bottom: 8px;
     }
+    
     .classification-card .value {
-      font-size: 14pt;
-      font-weight: bold;
-      color: #003399;
+      font-family: 'Inter', sans-serif;
+      font-size: 11pt;
+      font-weight: 500;
+      color: var(--ink);
     }
+    
+    .classification-card .value.success { color: var(--success); }
+    .classification-card .value.warning { color: var(--accent); }
+    .classification-card .value.accent { color: var(--accent); }
+    
+    .classification-card .subtitle {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+    
+    /* Info Grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--parchment);
+    }
+    
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    
+    .info-row .label {
+      font-size: 9pt;
+      color: var(--stone);
+    }
+    
+    .info-row .value {
+      font-size: 9pt;
+      color: var(--ink);
+      text-align: right;
+    }
+    
+    .info-row .value.yes { color: var(--success); }
+    .info-row .value.no { color: var(--muted); }
+    
+    /* Obligations */
     .obligation {
-      border: 1px solid #e7e5e4;
-      padding: 15px;
-      margin: 15px 0;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
       page-break-inside: avoid;
     }
-    .obligation h4 {
-      margin: 0 0 10px 0;
-      color: #003399;
+    
+    .obligation-header {
+      background: var(--parchment);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
     }
-    .obligation .article {
-      font-family: 'Courier New', monospace;
+    
+    .obligation-header .left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .article-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9pt;
+      color: var(--eu-blue);
+      background: rgba(0, 51, 153, 0.05);
+      border: 1px solid rgba(0, 51, 153, 0.1);
+      padding: 4px 8px;
+    }
+    
+    .obligation-title {
+      font-family: 'Inter', sans-serif;
       font-size: 10pt;
-      color: #003399;
-      background: #f0f4ff;
-      padding: 2px 8px;
-      display: inline-block;
-      margin-bottom: 10px;
+      font-weight: 500;
+      color: var(--ink);
     }
+    
+    .status-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+    }
+    
+    .status-badge.applies {
+      background: #dcfce7;
+      color: var(--success);
+    }
+    
+    .status-badge.not-applies {
+      background: var(--parchment);
+      color: var(--muted);
+    }
+    
+    .obligation-body {
+      padding: 16px;
+    }
+    
+    .obligation-body p {
+      font-size: 9pt;
+      color: var(--stone);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    
     .action-items {
-      list-style: decimal;
-      padding-left: 20px;
-      margin-top: 10px;
+      margin-top: 12px;
     }
-    .action-items li {
-      margin-bottom: 5px;
+    
+    .action-items-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--stone);
+      margin-bottom: 8px;
     }
-    .footer {
-      margin-top: 50px;
-      padding-top: 20px;
-      border-top: 1px solid #ccc;
-      font-size: 10pt;
-      color: #666;
-      text-align: center;
+    
+    .action-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px;
+      background: var(--parchment);
+      border: 1px solid var(--border);
+      margin-bottom: 6px;
     }
-    .summary {
-      background: #fafaf9;
+    
+    .action-item .number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8pt;
+      color: var(--accent);
+      background: rgba(184, 134, 11, 0.1);
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .action-item .text {
+      font-size: 9pt;
+      color: var(--stone);
+    }
+    
+    /* Summary */
+    .summary-card {
+      background: var(--parchment);
+      border: 1px solid var(--border);
       padding: 20px;
       margin: 20px 0;
-      border: 1px solid #e7e5e4;
     }
+    
+    .summary-card p {
+      font-size: 10pt;
+      color: var(--stone);
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    
+    .summary-card p:last-child {
+      margin-bottom: 0;
+    }
+    
+    /* Footer */
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    
+    .footer p {
+      font-size: 8pt;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    
+    .footer .disclaimer {
+      font-style: italic;
+      margin-top: 12px;
+    }
+    
+    /* Page breaks */
+    .page-break { 
+      page-break-before: always; 
+      margin-top: 0;
+      padding-top: 20px;
+    }
+    
+    /* Section headings */
+    h2 {
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-size: 14pt;
+      font-weight: 400;
+      color: var(--ink);
+      margin: 30px 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    h3 {
+      font-family: 'Inter', sans-serif;
+      font-size: 11pt;
+      font-weight: 500;
+      color: var(--ink);
+      margin: 20px 0 12px 0;
+    }
+    
     @media print {
-      body { padding: 0; }
-      .page-break { page-break-before: always; }
+      body { 
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
 <body>
+  <!-- Header -->
   <div class="header">
-    <h1>Digital Services Act<br>Compliance Assessment Report</h1>
-    <p><strong>${report.company_name}</strong></p>
-    <p>Generated: ${new Date().toLocaleDateString("en-EU", {
-      dateStyle: "long",
-    })}</p>
+    <div class="header-top">
+      <div class="logo">Corinna</div>
+      <div class="badge">DSA Compliance Assessment</div>
+    </div>
+    <h1>${report.company_name}</h1>
+    <div class="header-meta">
+      Generated on <strong>${new Date().toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })}</strong> · Regulation (EU) 2022/2065
+    </div>
   </div>
 
-  <div class="meta">
-    <p><strong>Report Type:</strong> DSA Service Categorization & Obligation Analysis</p>
-    <p><strong>Regulation Reference:</strong> Regulation (EU) 2022/2065 (Digital Services Act)</p>
-    <p><strong>Assessment Date:</strong> ${
-      new Date().toISOString().split("T")[0]
-    }</p>
-  </div>
-
-  <h2>1. Classification Summary</h2>
+  <!-- Classification Summary -->
+  <div class="section-label">Classification Summary</div>
+  
   <div class="classification-grid">
     <div class="classification-card">
-      <h4>Territorial Scope</h4>
-      <div class="value">${
-        report.classification.territorial_scope.is_in_scope
-          ? "In Scope"
-          : "Out of Scope"
-      }</div>
+      <div class="label">Territorial Scope</div>
+      <div class="value ${
+        report.classification.territorial_scope.is_in_scope ? "success" : ""
+      }">${
+    report.classification.territorial_scope.is_in_scope
+      ? "In Scope"
+      : "Out of Scope"
+  }</div>
+      <div class="subtitle">Article 2 DSA</div>
     </div>
     <div class="classification-card">
-      <h4>Service Category</h4>
-      <div class="value">${
+      <div class="label">Service Category</div>
+      <div class="value accent">${
         report.classification.service_classification.service_category
       }</div>
+      <div class="subtitle">Articles 3-6 DSA</div>
     </div>
     <div class="classification-card">
-      <h4>Size Designation</h4>
-      <div class="value">${
-        report.classification.size_designation.is_vlop_vlose
-          ? "VLOP/VLOSE"
-          : report.classification.size_designation.qualifies_for_sme_exemption
-          ? "SME Exempt"
-          : "Standard"
-      }</div>
+      <div class="label">Size Designation</div>
+      <div class="value ${
+        report.classification.size_designation.is_vlop_vlose ? "warning" : ""
+      }">${
+    report.classification.size_designation.is_vlop_vlose
+      ? "VLOP/VLOSE"
+      : report.classification.size_designation.qualifies_for_sme_exemption
+      ? "SME Exempt"
+      : "Standard"
+  }</div>
+      <div class="subtitle">Recital 77 DSA</div>
     </div>
   </div>
 
-  <h3>1.1 Territorial Scope Analysis</h3>
-  <p>${report.classification.territorial_scope.reasoning}</p>
+  <!-- Service Classification Details -->
+  <div class="card">
+    <div class="section-label">Service Classification Details</div>
+    <div class="info-grid">
+      <div>
+        <div class="info-row">
+          <span class="label">Intermediary Service</span>
+          <span class="value ${
+            report.classification.service_classification.is_intermediary
+              ? "yes"
+              : "no"
+          }">${
+    report.classification.service_classification.is_intermediary ? "Yes" : "No"
+  }</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Online Platform</span>
+          <span class="value ${
+            report.classification.service_classification.is_online_platform
+              ? "yes"
+              : "no"
+          }">${
+    report.classification.service_classification.is_online_platform
+      ? "Yes"
+      : "No"
+  }</span>
+        </div>
+      </div>
+      <div>
+        <div class="info-row">
+          <span class="label">Online Marketplace</span>
+          <span class="value ${
+            report.classification.service_classification.is_marketplace
+              ? "yes"
+              : "no"
+          }">${
+    report.classification.service_classification.is_marketplace ? "Yes" : "No"
+  }</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Search Engine</span>
+          <span class="value ${
+            report.classification.service_classification.is_search_engine
+              ? "yes"
+              : "no"
+          }">${
+    report.classification.service_classification.is_search_engine ? "Yes" : "No"
+  }</span>
+        </div>
+      </div>
+    </div>
+    ${
+      report.classification.territorial_scope.reasoning
+        ? `<p style="font-size: 9pt; color: var(--stone); margin-top: 12px; line-height: 1.6;">${report.classification.territorial_scope.reasoning}</p>`
+        : ""
+    }
+  </div>
 
-  <h3>1.2 Service Classification Details</h3>
-  <ul>
-    <li><strong>Intermediary Service:</strong> ${
-      report.classification.service_classification.is_intermediary
-        ? "Yes"
-        : "No"
-    }</li>
-    <li><strong>Online Platform:</strong> ${
-      report.classification.service_classification.is_online_platform
-        ? "Yes"
-        : "No"
-    }</li>
-    <li><strong>Online Marketplace:</strong> ${
-      report.classification.service_classification.is_marketplace ? "Yes" : "No"
-    }</li>
-    <li><strong>Search Engine:</strong> ${
-      report.classification.service_classification.is_search_engine
-        ? "Yes"
-        : "No"
-    }</li>
-  </ul>
-  ${
-    report.classification.service_classification.platform_reasoning
-      ? `<p>${report.classification.service_classification.platform_reasoning}</p>`
-      : ""
-  }
-
-  <div class="page-break"></div>
-
-  <h2>2. Applicable Obligations</h2>
-  <p>Based on the classification above, the following ${
-    applicableObligations.length
-  } DSA obligations apply to ${report.company_name}:</p>
+  <!-- Page Break -->
+  <div class="page-break">
+    <div class="section-label">Applicable Obligations · ${
+      applicableObligations.length
+    } Articles</div>
+  </div>
 
   ${applicableObligations
     .map(
-      (o) => `
+      (o, idx) => `
     <div class="obligation">
-      <span class="article">Article ${o.article}</span>
-      <h4>${o.title}</h4>
-      <p>${o.implications}</p>
-      ${
-        o.action_items.length > 0
-          ? `
-        <h5>Required Actions:</h5>
-        <ol class="action-items">
-          ${o.action_items.map((item) => `<li>${item}</li>`).join("")}
-        </ol>
-      `
-          : ""
-      }
+      <div class="obligation-header">
+        <div class="left">
+          <span class="article-badge">Article ${o.article}</span>
+          <span class="obligation-title">${o.title}</span>
+        </div>
+        <span class="status-badge applies">Applies</span>
+      </div>
+      <div class="obligation-body">
+        <p>${o.implications}</p>
+        ${
+          o.action_items.length > 0
+            ? `
+          <div class="action-items">
+            <div class="action-items-label">Required Actions</div>
+            ${o.action_items
+              .map(
+                (item, i) => `
+              <div class="action-item">
+                <span class="number">${i + 1}</span>
+                <span class="text">${item}</span>
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
+      </div>
     </div>
   `
     )
     .join("")}
 
-  <div class="page-break"></div>
+  ${
+    notApplicableObligations.length > 0
+      ? `
+    <div class="section-label" style="margin-top: 30px;">Not Applicable · ${
+      notApplicableObligations.length
+    } Articles</div>
+    ${notApplicableObligations
+      .slice(0, 5)
+      .map(
+        (o) => `
+      <div class="obligation">
+        <div class="obligation-header">
+          <div class="left">
+            <span class="article-badge" style="opacity: 0.5;">Article ${o.article}</span>
+            <span class="obligation-title" style="color: var(--muted);">${o.title}</span>
+          </div>
+          <span class="status-badge not-applies">Not Applicable</span>
+        </div>
+      </div>
+    `
+      )
+      .join("")}
+    ${
+      notApplicableObligations.length > 5
+        ? `<p style="font-size: 8pt; color: var(--muted); text-align: center; margin-top: 8px;">+ ${
+            notApplicableObligations.length - 5
+          } more articles not applicable</p>`
+        : ""
+    }
+  `
+      : ""
+  }
 
-  <h2>3. Executive Summary</h2>
-  <div class="summary">
+  <!-- Page Break -->
+  <div class="page-break">
+    <div class="section-label">Executive Summary</div>
+  </div>
+
+  <div class="summary-card">
     ${report.summary
       .split("\n")
+      .filter((p) => p.trim())
       .map((p) => `<p>${p}</p>`)
       .join("")}
   </div>
 
+  <!-- Footer -->
   <div class="footer">
-    <p>This report was generated by Corinna DSA Compliance Assessment</p>
-    <p>For official legal advice, please consult with a qualified legal professional.</p>
-    <p>© ${new Date().getFullYear()} - Report generated on ${new Date().toISOString()}</p>
+    <p>DSA Compliance Assessment Report · ${report.company_name}</p>
+    <p>Generated by Corinna on ${new Date().toISOString()}</p>
+    <p class="disclaimer">This report is for informational purposes only. For official legal advice, please consult with a qualified legal professional.</p>
   </div>
 </body>
 </html>
