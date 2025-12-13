@@ -29,3 +29,8 @@ host-retriever/**/__pycache__/
 .DS_Store
 Thumbs.db
 
+# LangGraph checkpoint files
+backend/agents/company_researcher/.langgraph_api/.langgraph_checkpoint*.pckl
+backend/agents/company_researcher/.langgraph_api/.langgraph_ops.pckl
+backend/agents/company_researcher/.langgraph_api/.langgraph_retry_counter.pckl
+backend/agents/company_researcher/.langgraph_api/store*.pckl
