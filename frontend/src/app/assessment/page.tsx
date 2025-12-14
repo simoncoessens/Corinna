@@ -522,15 +522,21 @@ export default function AssessmentPage() {
       initial={{ opacity: 0, filter: "blur(8px)" }}
       animate={{ opacity: 1, filter: "blur(0px)" }}
       transition={{ duration: 0.625, ease: [0.4, 0, 0.2, 1] }}
-      className="h-screen bg-[#fafaf9] flex flex-col overflow-hidden"
+      className="bg-[#fafaf9] flex flex-col overflow-hidden"
+      style={{
+        // Use large viewport height - stays constant even when keyboard appears
+        // This prevents content from shifting into the notch when typing
+        height: "100vh", // Fallback for older browsers
+        height: "100lvh", // Large viewport height - assumes keyboard is hidden
+      }}
     >
-      {/* Header - With notch-specific safe area handling */}
-      <header className="shrink-0 bg-[#fafaf9]/80 backdrop-blur-lg border-b border-[#e7e5e4]">
+      {/* Header - With notch-specific safe area handling and fixed positioning on mobile */}
+      <header className="shrink-0 bg-[#fafaf9]/80 backdrop-blur-lg border-b border-[#e7e5e4] max-sm:sticky max-sm:top-0 max-sm:z-10">
         <div
           className="md:px-6 md:py-0 md:h-14 flex flex-col md:flex-row items-center gap-3 md:gap-0"
           style={{
             // On mobile devices with notch (iPhone X+), add safe area padding at top
-            // This ensures the Corinna logo is never obscured by the notch
+            // This ensures the Corinna logo is never obscured by the notch, even when keyboard appears
             paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
             paddingBottom: "0.75rem",
             paddingLeft: "calc(1rem + env(safe-area-inset-left, 0px))",

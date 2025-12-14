@@ -1194,6 +1194,11 @@ export function ChatPopup({
               "border border-[#e7e5e4]",
               "flex flex-col overflow-hidden"
             )}
+            style={{
+              // Ensure chat never exceeds viewport on mobile
+              // Use large viewport height to prevent shift when keyboard appears
+              maxHeight: "calc(100lvh - 2rem)",
+            }}
           >
             {/* Header - With notch-specific safe area handling */}
             <div

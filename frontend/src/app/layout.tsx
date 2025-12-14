@@ -60,7 +60,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-hidden">
       <body
-        className={`${instrumentSerif.variable} ${dmSans.variable} ${jetBrainsMono.variable} antialiased overflow-hidden h-screen`}
+        className={`${instrumentSerif.variable} ${dmSans.variable} ${jetBrainsMono.variable} antialiased overflow-hidden`}
+        style={{
+          // Use large viewport height - stays constant even when keyboard appears
+          height: "100vh", // Fallback for older browsers
+          height: "100lvh", // Large viewport height - prevents shift when keyboard appears
+        }}
       >
         {children}
       </body>
