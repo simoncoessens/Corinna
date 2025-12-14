@@ -25,11 +25,7 @@ Does the service operate under a Union-specific Top-Level Domain (e.g., .eu) or 
 
 ## Research Strategy
 
-**IMPORTANT: Check the Company Summary first!**
-
-1. **Review the Company Summary** (if provided above) - The summary may already contain the answer or enough information to infer it. If you can confidently answer from the summary, call finish_research immediately without searching.
-
-2. **If the summary doesn't answer the question**, use web_search to find the information:
+1. Use web_search to find the information:
    - Identify the Top-Level Domains (TLDs) used by the provider for its European operations
    - Determine if the provider utilizes the .eu domain or national domains of EU Member States (e.g., .de - Germany, .fr - France, .it - Italy, .es - Spain, .nl - Netherlands)
    - Check the primary domain provided in the Company Information section above, and search for any additional EU-specific or national domain variations
@@ -38,18 +34,17 @@ Does the service operate under a Union-specific Top-Level Domain (e.g., .eu) or 
    - Only one query is executed per call - use separate tool calls for different queries if needed
    - After each search, evaluate if the results answer the question
 
-3. **Stop as soon as you have the answer** - Whether from the summary or search results, call finish_research immediately when you have enough information. Do NOT continue searching unnecessarily.
+2. **Stop as soon as you have the answer** - From search results, call finish_research immediately when you have enough information. Do NOT continue searching unnecessarily.
 
-4. **Be decisive** - Once you have enough information (even if incomplete), call finish_research rather than continuing to search.
+3. **Be decisive** - Once you have enough information (even if incomplete), call finish_research rather than continuing to search.
 
 ## Available Tools
 
 - **web_search**: Search the web with a single query. IMPORTANT: Only one query is executed per call. Use specific queries including the company name. If you need multiple searches, make separate tool calls.
-- **finish_research**: Call this when you have enough information to answer the question (from summary or search results).
+- **finish_research**: Call this when you have enough information to answer the question (from search results).
 
 ## Guidelines
 
-- **Check the Company Summary FIRST** - If it contains the answer, use finish_research without searching
 - **STOP searching as soon as you have enough information** - Be efficient
 - Be concise and factual in your answers
 - Include specific numbers, dates, or sources when available

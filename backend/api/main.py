@@ -14,9 +14,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from root .env file (project-wide config)
+root_path = Path(__file__).resolve().parent.parent.parent
+root_env_path = root_path / ".env"
+if root_env_path.exists():
+    load_dotenv(root_env_path, override=False)
+
+# Also load backend-specific .env if it exists (for overrides)
+backend_env_path = Path(__file__).resolve().parent.parent / ".env"
+if backend_env_path.exists():
+    load_dotenv(backend_env_path, override=True)
 
 # Add backend to path for database imports
 backend_path = Path(__file__).resolve().parent.parent
@@ -357,10 +366,28 @@ async def lifespan(app: FastAPI):
     # Initialize database
     if DB_AVAILABLE:
         try:
+            from database.connection import DATABASE_URL, engine
+            # Test connection
+            with engine.connect() as conn:
+                conn.execute("SELECT 1")
+            
+            # Log which database is being used
+            if DATABASE_URL.startswith("postgresql://"):
+                # Mask password in log
+                masked_url = DATABASE_URL.split("@")[1] if "@" in DATABASE_URL else "Supabase"
+                print(f"✓ Database: PostgreSQL/Supabase ({masked_url})")
+            elif DATABASE_URL.startswith("sqlite://"):
+                print(f"⚠ Database: SQLite (local development only)")
+                print("  Note: Set DATABASE_URL to use Supabase in production")
+            else:
+                print(f"✓ Database: {DATABASE_URL[:30]}...")
+            
             init_db()
-            print("✓ Database initialized")
+            print("✓ Database initialized and connected")
         except Exception as e:
-            print(f"⚠ Database initialization failed: {e}")
+            print(f"✗ Database initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
     
     print("✓ DSA Copilot API ready")
     print(f"  - Company Matcher: {'✓' if company_matcher else '✗'}")

@@ -54,11 +54,7 @@ A **Very Large Online Platform (VLOP)** is an online platform that has been **de
 
 ## Research Strategy
 
-**IMPORTANT: Check the Company Summary first!**
-
-1. **Review the Company Summary** (if provided above) - The summary may already contain the answer or enough information to infer it. If you can confidently answer from the summary, call finish_research immediately without searching.
-
-2. **If the summary doesn't answer the question**, use web_search to find the information:
+1. Use web_search to find the information:
    - Search for information about whether the service, as a primary feature, allows users to publish content visible to an indefinite number of people
    - Determine if the service stores and disseminates information to the public (dissemination to potentially unlimited third parties)
    - Check if the dissemination function is a primary feature or merely a minor, ancillary feature
@@ -67,18 +63,17 @@ A **Very Large Online Platform (VLOP)** is an online platform that has been **de
    - Only one query is executed per call - use separate tool calls for different queries if needed
    - After each search, evaluate if the results answer the question
 
-3. **Stop as soon as you have the answer** - Whether from the summary or search results, call finish_research immediately when you have enough information. Do NOT continue searching unnecessarily.
+2. **Stop as soon as you have the answer** - From search results, call finish_research immediately when you have enough information. Do NOT continue searching unnecessarily.
 
-4. **Be decisive** - Once you have enough information (even if incomplete), call finish_research rather than continuing to search.
+3. **Be decisive** - Once you have enough information (even if incomplete), call finish_research rather than continuing to search.
 
 ## Available Tools
 
 - **web_search**: Search the web with a single query. IMPORTANT: Only one query is executed per call. Use specific queries including the company name. If you need multiple searches, make separate tool calls.
-- **finish_research**: Call this when you have enough information to answer the question (from summary or search results).
+- **finish_research**: Call this when you have enough information to answer the question (from search results).
 
 ## Guidelines
 
-- **Check the Company Summary FIRST** - If it contains the answer, use finish_research without searching
 - **STOP searching as soon as you have enough information** - Be efficient
 - Be concise and factual in your answers
 - Include specific numbers, dates, or sources when available

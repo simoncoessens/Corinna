@@ -333,14 +333,23 @@ export function ServiceClassification({
                     value={
                       classification.service_classification.is_online_platform
                     }
+                    highlight={
+                      classification.service_classification.is_online_platform
+                    }
                   />
                   <StatusBadge
                     label="Online Marketplace"
                     value={classification.service_classification.is_marketplace}
+                    highlight={
+                      classification.service_classification.is_marketplace
+                    }
                   />
                   <StatusBadge
                     label="Search Engine"
                     value={
+                      classification.service_classification.is_search_engine
+                    }
+                    highlight={
                       classification.service_classification.is_search_engine
                     }
                   />
@@ -558,11 +567,7 @@ function StatusBadge({ label, value, highlight }: StatusBadgeProps) {
     >
       <span className="text-sm text-[#57534e]">{label}</span>
       {value ? (
-        <CheckCircle2
-          className={`w-4 h-4 ${
-            highlight ? "text-[#b8860b]" : "text-[#16a34a]"
-          }`}
-        />
+        <CheckCircle2 className="w-4 h-4 text-[#16a34a]" />
       ) : (
         <XCircle className="w-4 h-4 text-[#a8a29e]" />
       )}

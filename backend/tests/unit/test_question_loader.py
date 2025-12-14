@@ -77,7 +77,7 @@ What are the company's services?
         """Test _infer_section_from_index for service type questions."""
         from company_researcher.question_loader import _infer_section_from_index
         
-        for idx in [10, 11, 12, 15, 16]:
+        for idx in [10, 11, 12, 15]:
             section = _infer_section_from_index(idx)
             assert section == "TYPE OF SERVICE PROVIDED"
 

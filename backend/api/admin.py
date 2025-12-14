@@ -2,7 +2,7 @@
 
 import os
 import io
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -57,7 +57,7 @@ def get_dashboard_stats(
     days: int = Query(default=7, ge=1, le=90),
 ):
     """Get dashboard statistics for the last N days."""
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     
     # Total sessions
     total_sessions = db.query(Session).filter(Session.created_at >= cutoff).count()
@@ -108,9 +108,9 @@ def get_dashboard_stats(
     # Sessions per day for chart
     sessions_per_day = []
     for i in range(days):
-        day = datetime.utcnow().date() - timedelta(days=i)
-        day_start = datetime.combine(day, datetime.min.time())
-        day_end = datetime.combine(day, datetime.max.time())
+        day = datetime.now(timezone.utc).date() - timedelta(days=i)
+        day_start = datetime.combine(day, datetime.min.time(), timezone.utc)
+        day_end = datetime.combine(day, datetime.max.time(), timezone.utc)
         count = (
             db.query(Session)
             .filter(Session.created_at >= day_start)
@@ -188,7 +188,7 @@ def list_sessions(
         query = query.filter(Session.company_name.ilike(f"%{company}%"))
     
     if days:
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         query = query.filter(Session.created_at >= cutoff)
     
     # Total count
@@ -448,7 +448,7 @@ def export_session_pdf(
     doc.build(story)
     buffer.seek(0)
     
-    filename = f"corinna_assessment_{session.company_name or session_id}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    filename = f"corinna_assessment_{session.company_name or session_id}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
     filename = filename.replace(" ", "_").replace("/", "_")
     
     return Response(
@@ -491,7 +491,7 @@ def cleanup_old_sessions(
     days: int = Query(default=30, ge=7, le=365),
 ):
     """Delete sessions older than N days."""
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     
     count = db.query(Session).filter(Session.created_at < cutoff).count()
     db.query(Session).filter(Session.created_at < cutoff).delete()

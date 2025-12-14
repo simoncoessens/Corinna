@@ -1,7 +1,7 @@
 """Session tracking service for monitoring user assessments."""
 
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from contextlib import contextmanager
 
@@ -125,7 +125,7 @@ class SessionTracker:
                 return
             
             session.status = SessionStatus.COMPLETED
-            session.completed_at = datetime.utcnow()
+            session.completed_at = datetime.now(timezone.utc)
             
             # Calculate total duration
             if session.created_at:
@@ -225,7 +225,7 @@ class SessionTracker:
             if not step:
                 return
             
-            step.completed_at = datetime.utcnow()
+            step.completed_at = datetime.now(timezone.utc)
             step.status = "error" if error_message else "completed"
             step.response_data = response_data
             step.error_message = error_message

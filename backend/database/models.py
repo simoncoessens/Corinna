@@ -1,7 +1,7 @@
 """SQLAlchemy models for session tracking and analytics."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 from sqlalchemy import (
@@ -15,11 +15,36 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Enum as SQLEnum,
+    TypeDecorator,
 )
 from sqlalchemy.orm import relationship, declarative_base
 import enum
 
 Base = declarative_base()
+
+
+class EnumValueType(TypeDecorator):
+    """Type decorator to ensure enum values (not names) are stored in the database."""
+    impl = String
+    cache_ok = True
+    
+    def __init__(self, enum_class, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.enum_class = enum_class
+    
+    def process_bind_param(self, value, dialect):
+        """Convert enum to its value (string) when storing."""
+        if value is None:
+            return None
+        if isinstance(value, enum.Enum):
+            return value.value
+        return value
+    
+    def process_result_value(self, value, dialect):
+        """Convert string back to enum when reading."""
+        if value is None:
+            return None
+        return self.enum_class(value)
 
 
 class SessionStatus(str, enum.Enum):
@@ -54,13 +79,14 @@ class Session(Base):
     # Primary key
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    completed_at = Column(DateTime, nullable=True)
+    # Timestamps (timezone-aware)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Session info
-    status = Column(SQLEnum(SessionStatus), default=SessionStatus.STARTED, nullable=False)
+    # Use EnumValueType to ensure enum values (lowercase strings) are stored, not enum names
+    status = Column(EnumValueType(SessionStatus, length=50), default=SessionStatus.STARTED, nullable=False)
     
     # Company info (populated as user progresses)
     company_name = Column(String(500), nullable=True)
@@ -148,12 +174,13 @@ class SessionStep(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    completed_at = Column(DateTime, nullable=True)
+    # Timestamps (timezone-aware)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # Step info
-    step_type = Column(SQLEnum(StepType), nullable=False)
+    # Use EnumValueType to ensure enum values (lowercase strings) are stored, not enum names
+    step_type = Column(EnumValueType(StepType, length=50), nullable=False)
     status = Column(String(50), default="started")  # started, streaming, completed, error
     
     # Request/Response data
@@ -208,8 +235,8 @@ class ChatMessage(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # Timestamps (timezone-aware)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Message info
     role = Column(String(20), nullable=False)  # "user" or "assistant"
