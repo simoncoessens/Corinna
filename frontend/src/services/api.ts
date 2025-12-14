@@ -17,6 +17,59 @@ import type {
 } from "@/types/api";
 
 // =============================================================================
+// Session Management
+// =============================================================================
+
+const SESSION_STORAGE_KEY = "corinna_session_id";
+
+/**
+ * Generate a new session ID (UUID v4).
+ */
+function generateSessionId(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Get the current session ID, creating one if it doesn't exist.
+ */
+export function getSessionId(): string {
+  if (typeof window === "undefined") {
+    return generateSessionId();
+  }
+  
+  let sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if (!sessionId) {
+    sessionId = generateSessionId();
+    sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+/**
+ * Start a new session (clears the current session ID).
+ */
+export function startNewSession(): string {
+  const sessionId = generateSessionId();
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+  }
+  return sessionId;
+}
+
+/**
+ * Clear the current session.
+ */
+export function clearSession(): void {
+  if (typeof window !== "undefined") {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+}
+
+// =============================================================================
 // Configuration
 // =============================================================================
 
@@ -126,16 +179,18 @@ export async function checkHealth(): Promise<HealthStatus> {
 export async function matchCompany(
   request: CompanyMatcherRequest
 ): Promise<CompanyMatchResult> {
+  const requestWithSession = { ...request, session_id: getSessionId() };
   return fetchApi<CompanyMatchResult>("/agents/company_matcher", {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(requestWithSession),
   });
 }
 
 export function streamMatchCompany(
   request: CompanyMatcherRequest
 ): AsyncGenerator<StreamEvent> {
-  return streamApi("/agents/company_matcher/stream", request);
+  const requestWithSession = { ...request, session_id: getSessionId() };
+  return streamApi("/agents/company_matcher/stream", requestWithSession);
 }
 
 // =============================================================================
@@ -145,16 +200,18 @@ export function streamMatchCompany(
 export async function researchCompany(
   request: CompanyResearcherRequest
 ): Promise<CompanyResearchResult> {
+  const requestWithSession = { ...request, session_id: getSessionId() };
   return fetchApi<CompanyResearchResult>("/agents/company_researcher", {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(requestWithSession),
   });
 }
 
 export function streamResearchCompany(
   request: CompanyResearcherRequest
 ): AsyncGenerator<StreamEvent> {
-  return streamApi("/agents/company_researcher/stream", request);
+  const requestWithSession = { ...request, session_id: getSessionId() };
+  return streamApi("/agents/company_researcher/stream", requestWithSession);
 }
 
 // =============================================================================
@@ -164,16 +221,18 @@ export function streamResearchCompany(
 export async function categorizeService(
   request: ServiceCategorizerRequest
 ): Promise<ComplianceReport> {
+  const requestWithSession = { ...request, session_id: getSessionId() };
   return fetchApi<ComplianceReport>("/agents/service_categorizer", {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(requestWithSession),
   });
 }
 
 export function streamCategorizeService(
   request: ServiceCategorizerRequest
 ): AsyncGenerator<StreamEvent> {
-  return streamApi("/agents/service_categorizer/stream", request);
+  const requestWithSession = { ...request, session_id: getSessionId() };
+  return streamApi("/agents/service_categorizer/stream", requestWithSession);
 }
 
 // =============================================================================
@@ -183,16 +242,18 @@ export function streamCategorizeService(
 export async function chatWithAgent(
   request: MainAgentRequest
 ): Promise<MainAgentResponse> {
+  const requestWithSession = { ...request, session_id: getSessionId() };
   return fetchApi<MainAgentResponse>("/agents/main_agent", {
     method: "POST",
-    body: JSON.stringify(request),
+    body: JSON.stringify(requestWithSession),
   });
 }
 
 export function streamChatWithAgent(
   request: MainAgentRequest
 ): AsyncGenerator<StreamEvent> {
-  return streamApi("/agents/main_agent/stream", request);
+  const requestWithSession = { ...request, session_id: getSessionId() };
+  return streamApi("/agents/main_agent/stream", requestWithSession);
 }
 
 // =============================================================================
@@ -200,6 +261,11 @@ export function streamChatWithAgent(
 // =============================================================================
 
 const api = {
+  // Session management
+  getSessionId,
+  startNewSession,
+  clearSession,
+  // API methods
   checkHealth,
   matchCompany,
   streamMatchCompany,

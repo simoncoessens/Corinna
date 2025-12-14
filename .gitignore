@@ -43,3 +43,7 @@ backend/agents/**/.langgraph_api/
 build/
 dist/
 .pytest_cache/
+
+# Database (SQLite for local dev)
+backend/data/*.db
+backend/data/*.sqlite

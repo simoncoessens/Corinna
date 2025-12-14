@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { getSessionId } from "@/services/api";
 import type {
   CompanyMatch,
   CompanyMatchResult,
@@ -251,6 +252,7 @@ export function CompanyMatcher({
           body: JSON.stringify({
             company_name: companyName.trim(),
             country_of_establishment: countryOfEstablishment.trim(),
+            session_id: getSessionId(),
           }),
         }
       );

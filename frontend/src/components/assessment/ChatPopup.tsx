@@ -17,6 +17,7 @@ import {
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
+import { getSessionId } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
 
 const toolLabels: Record<string, string> = {
@@ -1016,6 +1017,7 @@ export function ChatPopup({
               message: userMessage.content,
               frontend_context: fullContext,
               context_mode: contextMode,
+              session_id: getSessionId(),
             }),
           }
         );

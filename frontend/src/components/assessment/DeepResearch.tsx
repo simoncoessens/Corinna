@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileSearch, Check, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSessionId } from "@/services/api";
 import type {
   StreamEvent,
   ResultEvent,
@@ -85,6 +86,9 @@ export function DeepResearch({
   const researchPhaseComplete = useRef(false);
   const processingRef = useRef(false);
   const completedRef = useRef(false);
+  const researchStartedRef = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const lastCompanyRef = useRef<string | null>(null);
 
   // Keep unique sources by URL
   const dedupeSources = useCallback((list: SearchSource[]) => {
@@ -150,40 +154,113 @@ export function DeepResearch({
     [processQueue]
   );
 
-  // Get last N sources for display
-  const visibleSources = displayedSources.slice(-MAX_VISIBLE_SOURCES);
+  // Get last N sources for display (memoized to prevent unnecessary re-renders)
+  const visibleSources = useMemo(
+    () => displayedSources.slice(-MAX_VISIBLE_SOURCES),
+    [displayedSources]
+  );
+
+  // Memoize the visible sources data to prevent unnecessary updates
+  const visibleSourcesData = useMemo(
+    () =>
+      visibleSources.map((s) => ({
+        title: s.title,
+        url: s.url,
+      })),
+    [visibleSources]
+  );
+
+  // Track previous values to avoid unnecessary calls
+  const prevValuesRef = useRef<{
+    companyName: string;
+    phase: string;
+    totalSourceCount: number;
+    visibleSourcesData: typeof visibleSourcesData;
+  } | null>(null);
+
+  // Keep onVisibleStateChange in a ref to avoid dependency issues
+  const onVisibleStateChangeRef = useRef(onVisibleStateChange);
+  useEffect(() => {
+    onVisibleStateChangeRef.current = onVisibleStateChange;
+  }, [onVisibleStateChange]);
 
   useEffect(() => {
-    if (!onVisibleStateChange) return;
-    onVisibleStateChange({
+    if (!onVisibleStateChangeRef.current) return;
+
+    // Check if values actually changed
+    const prev = prevValuesRef.current;
+    if (
+      prev &&
+      prev.companyName === companyName &&
+      prev.phase === phase &&
+      prev.totalSourceCount === totalSourceCount &&
+      prev.visibleSourcesData.length === visibleSourcesData.length &&
+      prev.visibleSourcesData.every(
+        (s, i) =>
+          s.url === visibleSourcesData[i]?.url &&
+          s.title === visibleSourcesData[i]?.title
+      )
+    ) {
+      return; // No changes, skip update
+    }
+
+    // Update previous values
+    prevValuesRef.current = {
+      companyName,
+      phase,
+      totalSourceCount,
+      visibleSourcesData,
+    };
+
+    // Call the callback
+    onVisibleStateChangeRef.current({
       deepResearch: {
         companyName,
         phase,
         totalSourceCount,
-        visibleSources: visibleSources.map((s) => ({
-          title: s.title,
-          url: s.url,
-        })),
+        visibleSources: visibleSourcesData,
       },
     });
-  }, [
-    onVisibleStateChange,
-    companyName,
-    phase,
-    totalSourceCount,
-    visibleSources,
-  ]);
+  }, [companyName, phase, totalSourceCount, visibleSourcesData]);
 
   useEffect(() => {
+    // Check if company actually changed
+    const companyChanged = lastCompanyRef.current !== companyName;
+
+    // Guard against duplicate calls (e.g., React Strict Mode)
+    // Check synchronously if research is already starting/running for the same company
+    if (!companyChanged && researchStartedRef.current) {
+      // Same company and research already started (even if not completed), don't start again
+      return;
+    }
+
+    // Set flag IMMEDIATELY and synchronously to prevent duplicate runs
+    // This must happen before any async operations
+    researchStartedRef.current = true;
+
+    // Update last company reference
+    lastCompanyRef.current = companyName;
+
     // Reset per-run refs when company changes
     completedRef.current = false;
     searchCountRef.current = 0;
     llmCountRef.current = 0;
     researchPhaseComplete.current = false;
 
+    // Abort any existing research
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+    }
+
     const controller = new AbortController();
+    controllerRef.current = controller;
 
     async function runResearch() {
+      // Double-check: if controller was aborted or replaced, don't proceed
+      if (controller.signal.aborted || controllerRef.current !== controller) {
+        return;
+      }
+
       try {
         const response = await fetch(
           `${API_BASE_URL}/agents/company_researcher/stream`,
@@ -194,6 +271,7 @@ export function DeepResearch({
               company_name: companyName,
               top_domain: topDomain,
               summary_long: summaryLong,
+              session_id: getSessionId(),
             }),
             signal: controller.signal,
           }
@@ -299,7 +377,14 @@ export function DeepResearch({
     // Cleanup: abort fetch/stream when leaving the component (prevents
     // background streaming continuing into review screens).
     return () => {
-      controller.abort();
+      // Only abort if this controller is still the current one
+      if (controllerRef.current === controller) {
+        controller.abort();
+        controllerRef.current = null;
+        // Reset flag only if this was the active controller
+        // This allows a new research to start if company actually changes
+        researchStartedRef.current = false;
+      }
     };
   }, [companyName, topDomain, summaryLong, onComplete, onError, queueSources]);
 

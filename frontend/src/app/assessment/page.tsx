@@ -19,6 +19,7 @@ import {
   type ContextMode,
 } from "@/components/assessment";
 import { Button } from "@/components/ui";
+import { startNewSession, getSessionId } from "@/services/api";
 import type {
   CompanyResearchResult,
   SubQuestionAnswer,
@@ -399,6 +400,9 @@ export default function AssessmentPage() {
   };
 
   const handleReset = () => {
+    // Start a new session for the new assessment
+    startNewSession();
+
     setResearchStep("company_match");
     setSelectedCompany(null);
     setResearchResult(null);

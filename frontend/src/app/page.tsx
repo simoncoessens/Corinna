@@ -5,12 +5,15 @@ import { motion } from "framer-motion";
 import { ArrowRight, Search, Scale, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
+import { startNewSession } from "@/services/api";
 
 export default function HomePage() {
   const router = useRouter();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleBegin = () => {
+    // Start a new session for each assessment
+    startNewSession();
     setIsTransitioning(true);
     // Navigate after the fade-out completes
     setTimeout(() => {

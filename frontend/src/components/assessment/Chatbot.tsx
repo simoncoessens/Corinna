@@ -6,6 +6,7 @@ import { Send, Loader2 } from "lucide-react";
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
+import { getSessionId } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
 
 const toolLabels: Record<string, string> = {
@@ -97,6 +98,7 @@ export function Chatbot({ context }: ChatbotProps) {
         body: JSON.stringify({
           message: userMessage.content,
           frontend_context: context,
+          session_id: getSessionId(),
         }),
       });
 
