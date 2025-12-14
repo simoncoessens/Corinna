@@ -814,6 +814,13 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
             }
           />
         </dl>
+        {report.classification.size_designation.reasoning && (
+          <div className="mt-4 pt-4 border-t border-[#e7e5e4]">
+            <p className="text-xs text-[#57534e] leading-relaxed">
+              {report.classification.size_designation.reasoning}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Research Findings */}
@@ -1503,6 +1510,11 @@ function generatePDFContent(report: ComplianceReport): string {
       : "Standard"
   }</div>
       <div class="subtitle">Recital 77 DSA</div>
+      ${
+        report.classification.size_designation.reasoning
+          ? `<p style="font-size: 9pt; color: var(--stone); margin-top: 8px; line-height: 1.6;">${report.classification.size_designation.reasoning}</p>`
+          : ""
+      }
     </div>
   </div>
 
