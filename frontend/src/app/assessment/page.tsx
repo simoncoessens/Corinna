@@ -525,17 +525,18 @@ export default function AssessmentPage() {
       className="h-screen bg-[#fafaf9] flex flex-col overflow-hidden"
     >
       {/* Header - With notch-specific safe area handling */}
-      <header
-        className="shrink-0 bg-[#fafaf9]/80 backdrop-blur-lg border-b border-[#e7e5e4]"
-        style={{
-          // On mobile devices with notch (iPhone X+), add safe area padding at top
-          // This ensures the Corinna logo is never obscured by the notch
-          paddingTop: "max(0px, env(safe-area-inset-top, 0px))",
-          paddingLeft: "max(0px, env(safe-area-inset-left, 0px))",
-          paddingRight: "max(0px, env(safe-area-inset-right, 0px))",
-        }}
-      >
-        <div className="px-4 md:px-6 py-3 md:py-0 md:h-14 flex flex-col md:flex-row items-center gap-3 md:gap-0">
+      <header className="shrink-0 bg-[#fafaf9]/80 backdrop-blur-lg border-b border-[#e7e5e4]">
+        <div
+          className="md:px-6 md:py-0 md:h-14 flex flex-col md:flex-row items-center gap-3 md:gap-0"
+          style={{
+            // On mobile devices with notch (iPhone X+), add safe area padding at top
+            // This ensures the Corinna logo is never obscured by the notch
+            paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
+            paddingBottom: "0.75rem",
+            paddingLeft: "calc(1rem + env(safe-area-inset-left, 0px))",
+            paddingRight: "calc(1rem + env(safe-area-inset-right, 0px))",
+          }}
+        >
           <Link href="/" className="flex items-center md:mr-auto">
             <span className="font-serif text-3xl text-[#0a0a0a]">Corinna</span>
           </Link>
