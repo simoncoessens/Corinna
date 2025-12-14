@@ -1189,25 +1189,22 @@ export function ChatPopup({
               // Desktop positioning
               "sm:bottom-6 sm:right-6 sm:w-[380px] sm:h-[520px]",
               // Mobile: full screen with safe margins
-              "max-sm:left-4 max-sm:right-4 max-sm:bottom-4 max-sm:w-auto max-sm:h-auto",
+              "max-sm:left-4 max-sm:right-4 max-sm:bottom-4 max-sm:top-4 max-sm:w-auto max-sm:h-auto",
               "bg-white shadow-2xl",
               "border border-[#e7e5e4]",
               "flex flex-col overflow-hidden"
             )}
-            style={{
-              // Mobile: Dynamically adjust top position based on safe area inset
-              // This ensures the chat window starts below the notch on iPhone X+ devices
-              // Falls back to 1rem if safe area is not available
-              top: "max(1rem, env(safe-area-inset-top, 1rem))",
-            }}
           >
             {/* Header - With notch-specific safe area handling */}
             <div
-              className="shrink-0 px-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between sm:py-3 max-sm:pb-3"
+              className="shrink-0 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between sm:py-3 sm:px-4"
               style={{
                 // On mobile devices with notch (iPhone X+), add safe area padding at top
                 // This ensures the Corinna logo and title are never obscured by the notch
-                paddingTop: "max(0.75rem, env(safe-area-inset-top, 0.75rem))",
+                paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
+                paddingBottom: "0.75rem",
+                paddingLeft: "calc(1rem + env(safe-area-inset-left, 0px))",
+                paddingRight: "calc(1rem + env(safe-area-inset-right, 0px))",
               }}
             >
               <div className="flex items-center gap-3">
@@ -1353,8 +1350,18 @@ export function ChatPopup({
               </div>
             )}
 
-            {/* Input */}
-            <div className="shrink-0 p-3 border-t border-[#e7e5e4] bg-[#fafaf9]">
+            {/* Input - With safe area handling for home indicator */}
+            <div
+              className="shrink-0 border-t border-[#e7e5e4] bg-[#fafaf9] sm:p-3"
+              style={{
+                // On mobile devices, add safe area padding at bottom for home indicator
+                paddingTop: "0.75rem",
+                paddingLeft: "calc(0.75rem + env(safe-area-inset-left, 0px))",
+                paddingRight: "calc(0.75rem + env(safe-area-inset-right, 0px))",
+                paddingBottom:
+                  "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+              }}
+            >
               <div className="flex gap-2">
                 <input
                   ref={inputRef}
