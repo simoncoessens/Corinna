@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -16,6 +17,56 @@ from langgraph.graph import END, START, StateGraph
 from service_categorizer.models import Classification, ObligationAnalysis, ComplianceReport
 from service_categorizer.obligations import get_obligations_for_classification
 from service_categorizer.state import ServiceCategorizerInputState, ServiceCategorizerState
+
+
+try:
+    # Available when running via backend/api (backend added to sys.path there)
+    from knowledge_base.dsa_parser import get_article as _get_dsa_article
+except Exception:  # pragma: no cover - optional dependency/path at runtime
+    _get_dsa_article = None
+
+
+def _extract_article_point(article_text: str, point: str) -> str | None:
+    """Best-effort extract of a numbered point (e.g. '3') from an article body."""
+    # Try to match "\n3." ... until next "\n4." (or end)
+    pattern = rf"(?:^|\n){re.escape(point)}\.\s.*?(?=(?:\n\d+\.\s)|\Z)"
+    m = re.search(pattern, article_text, flags=re.DOTALL)
+    return m.group(0).strip() if m else None
+
+
+def _get_dsa_legal_text(article_ref: int | str) -> dict[str, str] | None:
+    """
+    Return legal text for an article reference.
+
+    Supports article refs like 11 or "24.3" (best-effort extract of point 3).
+    """
+    if _get_dsa_article is None:
+        return None
+
+    ref_str = str(article_ref).strip()
+    base_num = ref_str.split(".", 1)[0]
+    chunk = _get_dsa_article(base_num)
+    if chunk is None or not getattr(chunk, "content", None):
+        return None
+
+    article_text = str(chunk.content)
+    result: dict[str, str] = {
+        "article_number": base_num,
+        "title": str(getattr(chunk, "title", "") or ""),
+        "content": article_text,
+    }
+
+    # If we have something like "24.3", try to extract point 3 specifically.
+    if "." in ref_str:
+        _, point = ref_str.split(".", 1)
+        point = point.strip()
+        if point:
+            extracted = _extract_article_point(article_text, point)
+            if extracted:
+                result["point_number"] = point
+                result["point_content"] = extracted
+
+    return result
 
 
 
@@ -153,11 +204,24 @@ async def classify_service(
     
     obligations = []
     if classification.get("territorial_scope", {}).get("is_in_scope", False):
+        # Determine the service category
+        # If it's a marketplace, platform, or search engine, use that as the category
+        # Otherwise use the base service_category
+        service_category = svc.get("service_category", "Not Applicable")
+        if svc.get("is_marketplace", False):
+            service_category = "Online Marketplace"
+        elif svc.get("is_search_engine", False):
+            service_category = "Search Engine"
+        elif svc.get("is_online_platform", False):
+            service_category = "Online Platform"
+        
         obligations = get_obligations_for_classification(
-            service_category=svc.get("service_category", "Not Applicable"),
+            service_category=service_category,
             is_online_platform=svc.get("is_online_platform", False),
             is_marketplace=svc.get("is_marketplace", False),
+            is_search_engine=svc.get("is_search_engine", False),
             is_vlop_vlose=size.get("is_vlop_vlose", False),
+            is_sme_exemption_eligible=size.get("qualifies_for_sme_exemption", False),
         )
     
     return {
@@ -174,6 +238,7 @@ async def analyze_obligations(
     profile = state.get("company_profile", {})
     classification = state.get("classification", {})
     obligations = state.get("obligations", [])
+    summary_long = state.get("summary_long")
     
     if not obligations:
         return {"obligation_analyses": [], "messages": [AIMessage(content="No obligations to analyze.")]}
@@ -183,13 +248,17 @@ async def analyze_obligations(
     classification_summary = classification.get("summary", "")
     
     async def analyze_one(obl: dict) -> dict:
-        # Obligations now come with context and key_requirements from YAML
+        # Obligations come with context and key_requirements from YAML.
+        # Additionally, fetch the official DSA legal text from knowledge_base/dsa.html.
+        legal_text = _get_dsa_legal_text(obl.get("article", ""))
         prompt = load_prompt(
             "obligation.jinja",
             company_profile=json.dumps(profile, indent=2),
             company_name=company_name,
             obligation=obl,
             classification_summary=classification_summary,
+            summary_long=summary_long,
+            dsa_legal_text=legal_text,
         )
         
         try:

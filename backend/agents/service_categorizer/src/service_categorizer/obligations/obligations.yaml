@@ -1,0 +1,555 @@
+# Consolidated DSA Obligations
+# This file contains all obligations with mappings to service categories and size-based exemptions
+
+# Service Categories:
+# - Mere Conduit
+# - Caching
+# - Hosting
+# - Online Platform
+# - Online Marketplace
+# - Search Engine
+
+# Size Categories:
+# - Very Large Platform (VLOP/VLOSE): ≥45M EU users
+# - SME Exemption Eligible: <50 employees AND <€10M turnover
+
+# =============================================================================
+# Selection rules (authoritative)
+#
+# Logic:
+# - Start with the base list for the service category (category_articles[category])
+# - If VLOP/VLOSE: add extra articles (size_rules.vlop_vlose.extra_articles)
+# - If SME exemption eligible: remove exemptable articles (size_rules.sme_exemption_eligible.exempt_articles)
+#   but ONLY for Online Platforms that are NOT marketplaces and NOT VLOPs/VLOSEs.
+# =============================================================================
+
+category_articles:
+  Mere Conduit: [11, 12, 13, 14, 15]
+  Caching: [11, 12, 13, 14, 15]
+  Hosting: [11, 12, 13, 14, 15, 16, 17, 18]
+  Online Platform:
+    [11, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, "24.3", 25, 26, 27, 28]
+  Online Marketplace:
+    [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      21,
+      22,
+      23,
+      24,
+      "24.3",
+      25,
+      26,
+      27,
+      28,
+      30,
+      31,
+      32,
+    ]
+  Search Engine: [11, 12, 13, 14, 15]
+
+size_rules:
+  # Size rules modify the *base* `category_articles` selection.
+  #
+  # How to use:
+  # - **VLOP/VLOSE**: if `is_vlop_vlose == true`, we ADD `extra_articles` to the base list
+  # - **SME exemption**: if `qualifies_for_sme_exemption == true`, we REMOVE `exempt_articles`
+  #   from the base list (but only when the rule applies and the guards allow it).
+  #
+  # Important: SME exemptions differ by category:
+  # - Online Platforms: SME-eligible providers can be exempt from Section 3 (Art. 20–28)
+  # - Online Marketplaces: SME exemption does NOT remove Section 3 (Art. 19(2)); marketplaces
+  #   must still comply with Art. 20–28, plus the marketplace-specific Art. 30–32.
+  #
+  # Notes:
+  # - We never infer category membership here; we only modify by article numbers.
+  # - If you add a new obligation entry below, also update the relevant article lists here.
+  vlop_vlose:
+    # Only apply this rule when the *service category* is one of these.
+    applicable_categories:
+      ["Online Platform", "Online Marketplace", "Search Engine"]
+    # Extra obligations that apply *in addition to* the base category when VLOP/VLOSE is true.
+    extra_articles: [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43]
+  sme_exemption_online_platform:
+    # SME exemption for Section 3 obligations (Art. 20–28) for *non-marketplace* online platforms.
+    # Note: Article 24.3 is NOT exempt (must be excluded from exempt_articles).
+    applicable_categories: ["Online Platform"]
+    exempt_articles: [20, 21, 22, 23, 24, 25, 26, 27, 28]
+    # Articles that are NOT exempt even when SME-eligible (e.g., "24.3")
+    not_exempt_articles: ["24.3"]
+    # Guard: if true, do NOT apply SME exemption removals when the service is a marketplace.
+    not_if_marketplace: true
+    # Guard: if true, do NOT apply SME exemption removals when the service is VLOP/VLOSE.
+    not_if_vlop_vlose: true
+  sme_exemption_online_marketplace:
+    # Marketplaces do NOT benefit from the SME exemption for Section 3 (Art. 19(2)).
+    # Keep this rule explicit so the distinction is visible in config; it removes nothing.
+    applicable_categories: ["Online Marketplace"]
+    exempt_articles: []
+    not_if_marketplace: false
+    not_if_vlop_vlose: true
+
+obligations:
+  # ============================================================================
+  # Section 1: Intermediary Service Obligations (Articles 11-15)
+  # Apply to: ALL intermediary services (Mere Conduit, Caching, Hosting,
+  #           Online Platform, Online Marketplace, Search Engine)
+  # ============================================================================
+
+  - article: 11
+    title: Points of contact for Member States' authorities
+    context: |
+      You must designate a single point of contact for direct communication with 
+      EU authorities. This is separate from your legal representative (Art. 13).
+      The contact must be able to communicate in an official EU language.
+    key_requirements:
+      - Designate electronic point of contact
+      - Publish contact information publicly
+      - Ensure responsiveness to authority requests
+
+  - article: 12
+    title: Points of contact for recipients of the service
+    context: |
+      Users must have an easy way to contact you. This should enable rapid, 
+      direct, and efficient communication through electronic means.
+    key_requirements:
+      - Provide user-accessible contact mechanism
+      - Ensure efficient response capability
+      - Make contact information easily accessible
+
+  - article: 13
+    title: Legal representatives
+    context: |
+      If you're not established in the EU but offer services to EU users, 
+      you MUST designate a legal representative in one of the Member States 
+      where you offer services. This representative can be held liable.
+    key_requirements:
+      - Designate legal representative in an EU Member State
+      - Grant representative authority to be addressed by authorities
+      - Publish representative's contact details
+
+  - article: 14
+    title: Terms of service
+    context: |
+      Your terms of service must clearly explain your content moderation policies,
+      including what content/behavior is restricted and how decisions are made.
+      Terms must be clear, understandable, and accessible.
+    key_requirements:
+      - Include content moderation policies in ToS
+      - Explain restrictions on content and user behavior
+      - Describe algorithmic decision-making if used
+      - Use clear, plain language
+      - Make ToS publicly available
+
+  - article: 15
+    title: Transparency reporting obligations
+    context: |
+      Annual transparency reports are required. These must detail your content 
+      moderation activities including orders received, notices processed, and 
+      actions taken. Reports are public.
+    key_requirements:
+      - Publish annual transparency report
+      - Include statistics on orders from authorities
+      - Report on notice-and-action activities
+      - Detail content moderation measures
+      - Make report publicly accessible
+
+  # ============================================================================
+  # Section 2: Hosting Service Obligations (Articles 16-18)
+  # Apply to: Hosting, Online Platform, Online Marketplace, Search Engine
+  # ============================================================================
+
+  - article: 16
+    title: Notice and action mechanisms
+    context: |
+      You must implement a system allowing ANYONE to notify you of allegedly 
+      illegal content. This is the core "notice and action" mechanism of the DSA.
+      Notices should be easy to submit and must be processed diligently.
+    key_requirements:
+      - Implement electronic notice submission system
+      - Make mechanism easy to access and user-friendly
+      - Allow submission of precise location of content (URL)
+      - Allow explanation of why content is illegal
+      - Process notices in timely, diligent, non-arbitrary manner
+      - Confirm receipt of notice to submitter
+
+  - article: 17
+    title: Statement of reasons
+    context: |
+      When you restrict content or accounts, you must explain WHY. Users and 
+      content uploaders deserve to know the specific reasons for restrictions.
+      This enables meaningful appeals.
+    key_requirements:
+      - Provide clear statement of reasons for any restriction
+      - Specify legal ground or ToS provision violated
+      - Explain facts and circumstances of the decision
+      - Include information about redress options
+      - Deliver statement to affected user
+
+  - article: 18
+    title: Notification of suspicions of criminal offences
+    context: |
+      If you become aware of information suggesting a SERIOUS criminal offence 
+      involving a threat to life or safety, you must promptly inform law 
+      enforcement authorities.
+    key_requirements:
+      - Establish process for identifying serious criminal threats
+      - Promptly notify relevant law enforcement
+      - Provide all relevant available information
+      - This applies regardless of whether content was reported by users
+
+  # ============================================================================
+  # Section 3: Online Platform Obligations (Articles 19-28)
+  # Apply to: Online Platform, Online Marketplace, Search Engine
+  # NOTE: Articles 20-28 have SME exemption (unless marketplace or VLOP/VLOSE)
+  # ============================================================================
+
+  - article: 19
+    title: SME Exemption for Platform Obligations
+    context: |
+      Small/micro enterprises (< 50 employees, < €10M turnover) are EXEMPT from 
+      Section 3 obligations (Articles 20-28) UNLESS they are marketplaces or VLOPs.
+      This article defines the exemption criteria.
+    key_requirements:
+      - Exemption applies to Articles 20-28
+      - Must have < 50 employees AND < €10M annual turnover
+      - Does NOT apply to marketplaces (Art. 30-32 always apply)
+      - Does NOT apply to VLOPs/VLOSEs
+
+  - article: 20
+    title: Internal complaint-handling system
+    context: |
+      Beyond just explaining decisions (Art. 17), platforms must provide a real
+      complaint mechanism where users can challenge content moderation decisions.
+      Human review must be available upon request.
+    key_requirements:
+      - Free, electronic, easy-to-use complaint system
+      - Allow complaints against any content moderation decision
+      - Handle complaints in timely, non-discriminatory manner
+      - Provide human review (not purely automated)
+      - Inform users of outcome and redress options
+
+  - article: 21
+    title: Out-of-court dispute settlement
+    context: |
+      Users must be able to escalate disputes to certified independent bodies.
+      The platform must engage in good faith with these bodies.
+    key_requirements:
+      - Enable users to select certified dispute settlement body
+      - Engage in good faith with selected body
+      - Accept binding decisions from settlement body
+      - Bear reasonable costs for users who prevail
+
+  - article: 22
+    title: Trusted flaggers
+    context: |
+      Certain expert entities (consumer orgs, anti-hate groups, etc.) can be 
+      certified as "trusted flaggers." Their notices get priority processing.
+    key_requirements:
+      - Process trusted flagger notices with priority
+      - Ensure timely decisions on trusted flagger notices
+      - Maintain respectful cooperation with trusted flaggers
+
+  - article: 23
+    title: Measures and protection against misuse
+    context: |
+      You must take action against users who frequently submit manifestly 
+      unfounded notices or complaints (abusers of the system).
+    key_requirements:
+      - Suspend processing for repeat abusers
+      - Establish clear policy on misuse
+      - Issue warnings before suspension
+      - Maintain proportionality in enforcement
+
+  - article: 24
+    title: Transparency reporting (enhanced for platforms)
+    context: |
+      Platforms have MORE extensive reporting requirements than basic 
+      intermediaries. Reports must include detailed moderation statistics.
+    key_requirements:
+      - All Art. 15 requirements PLUS additional data
+      - Report on complaint-handling system usage
+      - Report on out-of-court dispute outcomes
+      - Include automated moderation statistics
+      - Publish every 6 months (not annually)
+      - Note: Article 24(3) is NOT exempt for SMEs (see separate entry)
+
+  - article: "24.3"
+    title: Information on average monthly active recipients (non-exempt for SMEs)
+    context: |
+      Article 24(3) requires providers of online platforms to furnish information 
+      about their average monthly active recipients upon request from the Digital 
+      Services Coordinator or the European Commission. This obligation applies 
+      regardless of the enterprise's size - even micro and small platforms must 
+      provide this data for regulatory oversight.
+    key_requirements:
+      - Provide information on average monthly active recipients upon request
+      - Respond to requests from Digital Services Coordinator
+      - Respond to requests from European Commission
+      - This obligation is NOT exempt for SMEs (unlike other parts of Article 24)
+
+  - article: 25
+    title: Online interface design and organisation
+    context: |
+      DARK PATTERNS ARE BANNED. Your interface must not deceive, manipulate, 
+      or impair users' ability to make free decisions. No "confirm-shaming," 
+      hidden unsubscribe buttons, or similar tricks.
+    key_requirements:
+      - No deceptive interface design
+      - No manipulation to influence decisions
+      - Clear presentation of choices
+      - No making certain choices harder than others
+      - Advertising must be clearly identifiable
+
+  - article: 26
+    title: Advertising on online platforms
+    context: |
+      Every ad must be clearly labeled AS an ad. Users must know WHO paid for 
+      it and the main targeting parameters. This enables informed decisions 
+      and accountability.
+    key_requirements:
+      - Clearly mark content as advertising
+      - Identify advertiser (or who paid)
+      - Provide meaningful targeting information
+      - Real-time, visible, and accessible information
+
+  - article: 27
+    title: Recommender system transparency
+    context: |
+      If you use algorithms to recommend/rank content, users must understand 
+      the main parameters used. You must offer at least one option NOT based 
+      on user profiling.
+    key_requirements:
+      - Explain main parameters of recommender systems
+      - Provide this in ToS in accessible manner
+      - Offer non-profiled recommendation option
+      - Allow users to modify recommendation parameters
+
+  - article: 28
+    title: Online protection of minors
+    context: |
+      Platforms accessible to minors must implement age-appropriate protections.
+      Content moderation must consider child safety. No profiling-based 
+      advertising to minors.
+    key_requirements:
+      - Design services with minor protection in mind
+      - Implement appropriate safeguards
+      - No targeted advertising based on profiling to known minors
+      - High level of privacy and safety for minors
+
+  - article: 29
+    title: SME Exemption for Marketplace Obligations
+    context: |
+      Unlike general platform obligations, marketplace-specific obligations (Art. 30-32)
+      have NO SME exemption. All marketplaces must comply regardless of size.
+    key_requirements:
+      - No SME exemption for Articles 30-32
+      - All marketplaces must comply regardless of size
+      - This ensures consumer protection and trader traceability
+
+  # ============================================================================
+  # Section 4: Online Marketplace Obligations (Articles 30-32)
+  # Apply to: Online Marketplace only
+  # NOTE: NO SME exemption for marketplace obligations
+  # ============================================================================
+
+  - article: 30
+    title: Traceability of traders
+    context: |
+      Before allowing a trader to use your platform, you MUST collect and verify
+      their identity information. This is KYBT - "Know Your Business Trader."
+      Enables accountability for illegal products/services.
+    key_requirements:
+      - Collect trader name, address, ID, contact details
+      - Collect trade register and VAT information
+      - Collect bank account details
+      - Make best efforts to verify information accuracy
+      - Verify against official databases where possible
+      - Obtain trader self-certification of compliance
+      - Request updated info if reason to believe data is incorrect
+
+  - article: 31
+    title: Compliance by design
+    context: |
+      Your platform interface must be designed to help traders comply with EU law.
+      Make it easy to provide required pre-contractual information, product safety
+      data, and trader identification.
+    key_requirements:
+      - Enable traders to provide legally required information
+      - Design interface to facilitate compliance
+      - Include fields for product/service identification
+      - Include fields for trader identification
+      - Ensure information is displayed to consumers
+
+  - article: 32
+    title: Right to information
+    context: |
+      When you become aware of illegal products sold through your platform,
+      you must inform consumers who purchased those products. This enables
+      consumer remedies and protects public safety.
+    key_requirements:
+      - Notify consumers of illegal products purchased
+      - Provide identity of the trader
+      - Provide relevant information for redress
+      - Make best efforts to reach affected consumers
+      - Notification must be clear and comprehensible
+
+  # ============================================================================
+  # Section 5: VLOP/VLOSE Obligations (Articles 33-43)
+  # Apply to: Very Large Online Platforms (VLOPs) and Very Large Online Search Engines (VLOSEs)
+  # Threshold: ≥45 million average monthly active recipients in the EU
+  # ============================================================================
+
+  - article: 33
+    title: Designation of VLOPs and VLOSEs
+    context: |
+      Article 33 establishes the criteria and procedures for designating online platforms 
+      and search engines as Very Large Online Platforms (VLOPs) and Very Large Online 
+      Search Engines (VLOSEs). Services with ≥45 million average monthly active 
+      recipients in the EU are subject to designation. Providers must publish user 
+      numbers and comply with designation procedures.
+    key_requirements:
+      - Publish EU user numbers prominently if approaching or exceeding 45M threshold
+      - Update user numbers every 6 months
+      - Cooperate with Commission designation process
+      - Can apply for designation if meeting criteria
+      - Can apply for revocation if no longer meeting criteria
+      - Comply with designation within 4 months of designation
+
+  - article: 34
+    title: Risk assessment
+    context: |
+      VLOPs/VLOSEs must conduct comprehensive ANNUAL assessments of systemic risks
+      arising from their services. This includes risks to fundamental rights,
+      civic discourse, electoral processes, public health, and minors.
+    key_requirements:
+      - Annual systemic risk assessment
+      - Assess illegal content dissemination risks
+      - Assess negative effects on fundamental rights
+      - Assess risks to civic discourse and elections
+      - Assess risks to public health and minors
+      - Consider recommender systems and advertising in assessment
+      - Consider content moderation and ToS enforcement
+
+  - article: 35
+    title: Mitigation of risks
+    context: |
+      Based on risk assessments, implement reasonable, proportionate, and effective
+      mitigation measures. This is the "do something about it" requirement.
+    key_requirements:
+      - Implement mitigation measures for identified risks
+      - Adapt content moderation as needed
+      - Adjust recommender systems if contributing to risk
+      - Adapt advertising systems if needed
+      - Enhance internal processes and resources
+      - Cooperate with trusted flaggers and authorities
+      - Launch awareness initiatives
+
+  - article: 36
+    title: Crisis response mechanism
+    context: |
+      During extraordinary crises (war, pandemic, natural disaster), the Commission
+      can require VLOPs/VLOSEs to take specific emergency measures. Must be ready
+      to respond rapidly.
+    key_requirements:
+      - Respond to Commission crisis requests
+      - Assess contribution of service to the crisis
+      - Implement proportionate emergency measures
+      - Report on actions taken
+
+  - article: 37
+    title: Independent audit
+    context: |
+      ANNUAL independent audits are MANDATORY. Auditors verify compliance with
+      all DSA obligations. Audit reports become public. This is serious accountability.
+    key_requirements:
+      - Annual audit by independent organization
+      - Auditor must be independent and expert
+      - Provide auditor with full access and cooperation
+      - Publish audit report
+      - Implement audit recommendations or explain non-implementation
+      - Audit compliance with ALL Chapter III obligations
+
+  - article: 38
+    title: Recommender systems (additional transparency)
+    context: |
+      Beyond Art. 27, VLOPs/VLOSEs must offer users the ability to EASILY modify
+      or influence the main parameters of recommender systems. More granular control.
+    key_requirements:
+      - Provide easy parameter modification functionality
+      - Offer at least one non-profiling option
+      - Make options easily accessible in interface (not buried)
+      - Allow users to change settings at any time
+
+  - article: 39
+    title: Additional online advertising transparency
+    context: |
+      VLOPs/VLOSEs must maintain a PUBLIC, searchable REPOSITORY of ALL ads
+      shown on their platform. Researchers and regulators can monitor advertising.
+    key_requirements:
+      - Compile and publish ad repository
+      - Repository must be publicly accessible
+      - Include ad content
+      - Include advertiser identity
+      - Include targeting parameters used
+      - Include total views/reach
+      - Maintain repository for one year after last display
+
+  - article: 40
+    title: Data access for researchers
+    context: |
+      Vetted researchers get access to platform data for studying systemic risks.
+      This is unprecedented transparency enabling academic scrutiny.
+    key_requirements:
+      - Provide data access to vetted researchers
+      - Access must enable systemic risk research
+      - Comply with Digital Services Coordinator requests
+      - Implement technical infrastructure for data access
+      - Protect user privacy while enabling research
+
+  - article: 41
+    title: Compliance function
+    context: |
+      A dedicated COMPLIANCE OFFICER must be appointed with independence and
+      authority. Reports directly to management. Cannot be removed without cause.
+    key_requirements:
+      - Appoint independent compliance officer(s)
+      - Ensure officer has necessary resources and authority
+      - Officer reports directly to highest management level
+      - Guarantee officer's independence
+      - Officer monitors and ensures compliance
+
+  - article: 42
+    title: Transparency reporting (VLOP-enhanced)
+    context: |
+      The most detailed transparency reporting requirements. Includes risk
+      assessment summaries, audit results, and detailed moderation data.
+    key_requirements:
+      - All previous reporting requirements
+      - Publish risk assessment summaries
+      - Publish audit implementation reports
+      - More detailed content moderation statistics
+      - Report on resources dedicated to moderation
+      - Publish every 6 months
+
+  - article: 43
+    title: Supervisory fee
+    context: |
+      VLOPs/VLOSEs must pay an annual supervisory fee to the European Commission 
+      to cover the costs of the Commission's supervisory tasks under the DSA. 
+      The fee is proportionate to the number of average monthly active recipients 
+      in the EU but shall not exceed 0.05% of the service provider's worldwide 
+      annual net income.
+    key_requirements:
+      - Pay annual supervisory fee to European Commission
+      - Fee covers Commission's supervisory and enforcement costs
+      - Fee is proportionate to EU user numbers
+      - Fee capped at 0.05% of worldwide annual net income
+      - Fee based on preceding financial year's user numbers

@@ -4,13 +4,18 @@
     - company_name: Name of the company
     - company_profile: Company data JSON
     - classification_summary: Summary of how company was classified
+    - summary_long: Optional long company summary
     - obligation: Full obligation dict with article, title, context, key_requirements
 #}
 
 You are a DSA compliance advisor explaining a specific obligation to a company.
 
 ## Company: {{ company_name }}
-{{ classification_summary }}
+{% if summary_long %}
+**Company Summary:**
+{{ summary_long }}
+
+{% endif %}{{ classification_summary }}
 
 ## Obligation: Article {{ obligation.article }}
 **{{ obligation.title }}**
@@ -22,6 +27,21 @@ You are a DSA compliance advisor explaining a specific obligation to a company.
 {% for req in obligation.key_requirements %}
 - {{ req }}
 {% endfor %}
+
+{% if dsa_legal_text %}
+### DSA Legal Text
+{% if dsa_legal_text.title %}**{{ dsa_legal_text.title }}**
+{% endif %}
+
+{% if dsa_legal_text.point_content %}
+**Extract (Article {{ dsa_legal_text.article_number }}.{{ dsa_legal_text.point_number }}):**
+{{ dsa_legal_text.point_content }}
+{% else %}
+**Article {{ dsa_legal_text.article_number }} (full text):**
+{{ dsa_legal_text.content }}
+{% endif %}
+
+{% endif %}
 
 ## Company Profile
 {{ company_profile }}
