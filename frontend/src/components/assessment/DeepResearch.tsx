@@ -14,11 +14,18 @@ import type {
   CompanyResearchResult,
   RESEARCH_SECTIONS,
 } from "@/types/research";
+import type { ChatContext } from "./ChatPopup";
 
 interface DeepResearchProps {
   companyName: string;
+  topDomain: string;
+  summaryLong: string;
   onComplete: (result: CompanyResearchResult) => void;
   onError: (error: string) => void;
+  /**
+   * Emits a snapshot of what the user can currently see in this screen.
+   */
+  onVisibleStateChange?: (state: ChatContext["visibleUi"]) => void;
 }
 
 const API_BASE_URL =
@@ -36,7 +43,8 @@ function extractDomain(url: string): string {
 }
 
 const MAX_VISIBLE_SOURCES = 6;
-const SOURCE_ADD_DELAY = 400; // ms between adding each source
+// Slow down the reveal so the list feels calmer.
+const SOURCE_ADD_DELAY = 900; // ms between adding each source
 
 const PHASE_CONFIG = {
   research: {
@@ -55,8 +63,11 @@ const PHASE_CONFIG = {
 
 export function DeepResearch({
   companyName,
+  topDomain,
+  summaryLong,
   onComplete,
   onError,
+  onVisibleStateChange,
 }: DeepResearchProps) {
   // Queue for incoming sources (raw from API)
   const sourceQueueRef = useRef<SearchSource[]>([]);
@@ -143,6 +154,27 @@ export function DeepResearch({
   const visibleSources = displayedSources.slice(-MAX_VISIBLE_SOURCES);
 
   useEffect(() => {
+    if (!onVisibleStateChange) return;
+    onVisibleStateChange({
+      deepResearch: {
+        companyName,
+        phase,
+        totalSourceCount,
+        visibleSources: visibleSources.map((s) => ({
+          title: s.title,
+          url: s.url,
+        })),
+      },
+    });
+  }, [
+    onVisibleStateChange,
+    companyName,
+    phase,
+    totalSourceCount,
+    visibleSources,
+  ]);
+
+  useEffect(() => {
     // Reset per-run refs when company changes
     completedRef.current = false;
     searchCountRef.current = 0;
@@ -158,7 +190,11 @@ export function DeepResearch({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ company_name: companyName }),
+            body: JSON.stringify({
+              company_name: companyName,
+              top_domain: topDomain,
+              summary_long: summaryLong,
+            }),
             signal: controller.signal,
           }
         );
@@ -186,7 +222,7 @@ export function DeepResearch({
 
             for (const line of lines) {
               if (!line.startsWith("data: ")) continue;
-              const data = line.slice(6);
+              const data = line.slice(6).trim();
 
               try {
                 const event = JSON.parse(data) as StreamEvent;
@@ -195,12 +231,13 @@ export function DeepResearch({
                   case "tool_end": {
                     const toolEndEvent = event as ToolEndEvent;
                     if (
-                      toolEndEvent.name === "web_search" &&
                       toolEndEvent.sources &&
                       toolEndEvent.sources.length > 0
                     ) {
                       queueSources(toolEndEvent.sources);
-                      searchCountRef.current++;
+                      if (toolEndEvent.name === "web_search") {
+                        searchCountRef.current++;
+                      }
                     }
                     break;
                   }
@@ -264,7 +301,7 @@ export function DeepResearch({
     return () => {
       controller.abort();
     };
-  }, [companyName, onComplete, onError, queueSources]);
+  }, [companyName, topDomain, summaryLong, onComplete, onError, queueSources]);
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -331,7 +368,8 @@ export function DeepResearch({
           </div>
 
           {/* Sources list */}
-          <div className="min-h-[216px] overflow-hidden">
+          {/* Fixed height to avoid vertical growth as sources accumulate */}
+          <div className="h-[216px] overflow-hidden">
             <AnimatePresence mode="popLayout" initial={false}>
               {visibleSources.length === 0 ? (
                 <motion.div
@@ -359,7 +397,7 @@ export function DeepResearch({
                   </span>
                 </motion.div>
               ) : (
-                <div className="divide-y divide-[#f5f5f4]">
+                <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4]">
                   {visibleSources.map((source) => (
                     <motion.div
                       key={source.url}

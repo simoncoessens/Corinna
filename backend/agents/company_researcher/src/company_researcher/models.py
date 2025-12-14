@@ -11,6 +11,8 @@ class SubQuestion(BaseModel):
 
     section: str
     question: str
+    # Name of the prompt template backing this question (e.g. "questions/q00.jinja")
+    template_name: str | None = None
     # Short list of relevant legal references (articles/recitals) from the CSV
     relevant_articles: List[str] = []
     # Optional rationale text from the CSV ("Why and what" column)
@@ -51,6 +53,9 @@ class SubQuestionAnswer(BaseModel):
     section: str
     question: str
     answer: str
+    # Explicit flag for when no relevant public information was found.
+    # This avoids downstream consumers having to infer "no data" from answer text.
+    information_found: bool = True
     source: str = "Unknown"
     confidence: str = "Medium"
     raw_research: str | None = None

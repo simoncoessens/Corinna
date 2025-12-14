@@ -86,8 +86,11 @@ async def agent(state: MainAgentState, config: RunnableConfig | None = None) -> 
     if state.get("frontend_context"):
         context = state["frontend_context"]
     
+    # Get explicit context mode if provided
+    context_mode = state.get("context_mode", "general")
+    
     # Load system prompt from Jinja template
-    system_prompt = load_prompt("system.jinja", context=context)
+    system_prompt = load_prompt("system.jinja", context=context, context_mode=context_mode)
     
     system_msg = SystemMessage(content=system_prompt)
     messages = [system_msg] + list(state.get("messages", []))

@@ -6,6 +6,8 @@ from typing import List, Optional
 from langchain_core.runnables import RunnableConfig
 from tavily import AsyncTavilyClient
 
+from tools.cache import get_cached, set_cached
+
 
 def get_tavily_api_key(config: Optional[RunnableConfig] = None) -> Optional[str]:
     """Get Tavily API key from environment or config."""
@@ -39,11 +41,16 @@ async def tavily_search_tool(
     
     for query in queries:
         try:
-            response = await client.search(
-                query,
-                max_results=max_results,
-                include_raw_content=False,  # Keep responses smaller
-            )
+            # Check cache first
+            response = get_cached(query, max_results)
+            if response is None:
+                response = await client.search(
+                    query,
+                    max_results=max_results,
+                    include_raw_content=False,
+                )
+                set_cached(query, max_results, response)
+
             for result in response.get("results", []):
                 url = result.get("url", "")
                 # Deduplicate by URL

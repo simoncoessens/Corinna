@@ -17,15 +17,47 @@ const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
 
 function MarkdownContent({ content }: { content: string }) {
   const sanitizedHtml = useMemo(() => {
-    const rawHtml = marked.parse(content ?? "", {
-      breaks: true,
+    const normalized = (content ?? "").replace(/\r\n/g, "\n");
+    const rawHtml = marked.parse(normalized, {
+      // Avoid turning every single newline into a <br/> (prevents "gappy" output).
+      breaks: false,
     }) as string;
-    return purifier ? purifier.sanitize(rawHtml) : rawHtml;
+    // Explicitly allow list elements in DOMPurify to ensure bullets render
+    return purifier
+      ? purifier.sanitize(rawHtml, {
+          ALLOWED_TAGS: [
+            "p",
+            "br",
+            "strong",
+            "em",
+            "u",
+            "s",
+            "code",
+            "pre",
+            "blockquote",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
+            "a",
+          ],
+          ALLOWED_ATTR: ["href", "title", "target", "rel"],
+        })
+      : rawHtml;
   }, [content]);
 
   return (
     <div
-      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-pre-wrap prose prose-sm max-w-none"
+      className="markdown-content font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-normal wrap-break-word prose prose-sm max-w-none
+        prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5
+        prose-headings:text-[#0a0a0a] prose-headings:font-medium
+        prose-a:text-[#003399] prose-a:no-underline hover:prose-a:underline
+        prose-strong:text-[#0a0a0a] prose-strong:font-medium"
       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
     />
   );
@@ -66,7 +98,7 @@ const phaseSuggestions: Record<AssistantPhase, string[]> = {
     "What sources are being checked?",
   ],
   review_scope: [
-    "What does geographical scope mean?",
+    "What does Territorial scope mean?",
     "Why does EU presence matter?",
     "How do I edit these findings?",
   ],
@@ -99,7 +131,7 @@ const phaseWelcomes: Record<AssistantPhase, string> = {
   deep_research:
     "I'm here while the research runs. Feel free to ask what information we're gathering or how it's used.",
   review_scope:
-    "Reviewing geographical scope findings. I can explain why EU presence matters for DSA compliance.",
+    "Reviewing Territorial scope findings. I can explain why EU presence matters for DSA compliance.",
   review_size:
     "Reviewing company size. I can help clarify how size thresholds affect your DSA obligations.",
   review_type:
@@ -251,7 +283,7 @@ export function AssistantPopup({
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const data = line.slice(6);
+            const data = line.slice(6).trim();
             try {
               const event = JSON.parse(data) as StreamEvent;
 
@@ -467,7 +499,7 @@ export function AssistantPopup({
                   className="flex gap-2 justify-start"
                 >
                   <div className="max-w-[85%] px-3 py-2 bg-[#f5f5f4] rounded-lg">
-                    <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-pre-wrap">
+                    <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-normal wrap-break-word">
                       <MarkdownContent content={streamingContent} />
                       <span className="inline-block w-1 h-4 bg-[#0a0a0a] ml-0.5 animate-pulse align-middle" />
                     </div>

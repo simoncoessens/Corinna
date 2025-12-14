@@ -9,10 +9,11 @@ Legal knowledge base for the Digital Services Act (DSA) using Qdrant vector sear
 ```bash
 # From project root
 cd infra
-docker-compose up -d qdrant
+docker-compose up -d qdrant redis
 ```
 
 Qdrant will be available at `http://localhost:6333`
+Redis will be available at `redis://localhost:6379`
 
 ### 2. Install Dependencies
 
@@ -27,6 +28,7 @@ Create a `.env` file:
 ```bash
 OPENAI_API_KEY=your-openai-api-key
 QDRANT_URL=http://localhost:6333
+REDIS_URL=redis://localhost:6379/0
 ```
 
 ### 4. Ingest DSA Document

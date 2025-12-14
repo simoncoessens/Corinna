@@ -22,7 +22,8 @@ Extract a clean answer from this research output.
 
 Respond in EXACTLY this format:
 
-ANSWER: [1-2 sentences with specific facts. Say "Information not publicly available" if not found.]
-SOURCE: [Main source domain, e.g., "company.com". Say "N/A" if unknown.]
-CONFIDENCE: [High/Medium/Low]
+INFORMATION_FOUND: [Yes/No]
+ANSWER: [1-2 sentences with specific facts. If INFORMATION_FOUND is No, set ANSWER to exactly: "Information not publicly available".]
+SOURCE: [Main source domain, e.g., "company.com". If INFORMATION_FOUND is No, set SOURCE to exactly: "N/A".]
+CONFIDENCE: [High/Medium/Low. If INFORMATION_FOUND is No, set CONFIDENCE to exactly: "Low".]
 

@@ -31,8 +31,10 @@ You are a company name matching agent. Your task is to find an exact match for a
 {
   "exact_match": {
     "name": "Exact Company Name",
-    "url": "https://company.com",
-    "confidence": "exact"
+    "top_domain": "company.com",
+    "confidence": "exact",
+    "summary_short": "1-2 sentence summary based on sources",
+    "summary_long": "Longer, more detailed summary based on sources (can be extensive)"
   },
   "suggestions": []
 }
@@ -46,8 +48,10 @@ OR if no exact match:
   "suggestions": [
     {
       "name": "Company Name",
-      "url": "https://company.com",
-      "confidence": "high|medium|low"
+      "top_domain": "company.com",
+      "confidence": "high|medium|low",
+      "summary_short": "1-2 sentence summary based on sources",
+      "summary_long": "Longer, more detailed summary based on sources (can be extensive)"
     }
   ]
 }
@@ -58,6 +62,7 @@ OR if no exact match:
 - If exact_match exists, suggestions should be empty
 - If no exact match, provide up to {{ max_suggestions }} suggestions with confidence levels
 - Be strict: "exact" means the company name matches exactly
+- Always return **top_domain** only (no scheme, no path), e.g. "example.com"
 - Maximum {{ max_iterations }} search iterations - then you must call finish_matching
 
 ## Task

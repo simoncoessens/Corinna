@@ -6,7 +6,7 @@ Standalone LangGraph agent for DSA (Digital Services Act) compliance research.
 
 Given a company name, this agent:
 
-1. Parses predefined research questions from `search_fields.csv`
+1. Loads predefined research questions from Jinja templates in `src/company_researcher/prompts/questions/`
 2. Searches for information about the company using Tavily
 3. Summarizes findings using an LLM (DeepSeek by default)
 4. Returns a structured JSON report
@@ -34,9 +34,9 @@ Required keys:
 - `OPENAI_BASE_URL`: `https://api.deepseek.com/v1`
 - `TAVILY_API_KEY`: Your Tavily search API key
 
-### 3. Ensure search_fields.csv exists
+### 3. Ensure question templates exist
 
-The agent looks for `search_fields.csv` at `backend/agents/search_fields.csv`.
+The agent loads question prompts from `src/company_researcher/prompts/questions/q*.jinja`.
 
 ## Running with LangGraph
 
@@ -92,7 +92,7 @@ company_researcher/
 │   ├── state.py           # LangGraph state definitions
 │   ├── models.py          # Pydantic models
 │   ├── utils.py           # API key helpers, Tavily search
-│   ├── csv_parser.py      # Parse search_fields.csv
+│   ├── question_loader.py # Load questions from prompt templates
 │   └── graph.py           # Main LangGraph workflow
 ├── langgraph.json         # LangGraph registration
 ├── pyproject.toml         # Python package config

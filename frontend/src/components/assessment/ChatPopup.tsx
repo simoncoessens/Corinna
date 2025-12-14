@@ -2,7 +2,18 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, X, Gavel, ArrowRight } from "lucide-react";
+import {
+  Send,
+  X,
+  MessageCircle,
+  ArrowRight,
+  Scale,
+  FileText,
+  Search,
+  BookOpen,
+  Gavel,
+  Shield,
+} from "lucide-react";
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
@@ -13,19 +24,257 @@ const toolLabels: Record<string, string> = {
   retrieve_dsa_knowledge: "Reading the DSA document",
 };
 
+// Legal-themed loading animation component
+function LegalLoadingAnimation({ tool }: { tool: string }) {
+  const isWebSearch = tool === "web_search";
+  const isDSA = tool === "retrieve_dsa_knowledge";
+
+  // Animated progress steps for legal research
+  const steps = useMemo(() => {
+    if (isDSA) {
+      return [
+        { label: "Opening DSA Regulation", icon: BookOpen, delay: 0 },
+        { label: "Analyzing Articles", icon: FileText, delay: 0.3 },
+        { label: "Cross-referencing Provisions", icon: Scale, delay: 0.6 },
+      ];
+    }
+    return [
+      { label: "Querying Legal Sources", icon: Search, delay: 0 },
+      { label: "Validating Information", icon: Shield, delay: 0.3 },
+      { label: "Compiling Findings", icon: Gavel, delay: 0.6 },
+    ];
+  }, [isDSA]);
+
+  return (
+    <div className="w-full max-w-[85%]">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-[#fafaf9] to-[#f5f5f4] border border-[#e7e5e4] overflow-hidden"
+      >
+        {/* Header with animated EU-style bar */}
+        <div className="relative h-1 bg-[#e7e5e4] overflow-hidden">
+          <motion.div
+            className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#003399] via-[#003399] to-[#FFD700]"
+            initial={{ width: "0%" }}
+            animate={{ width: "100%" }}
+            transition={{
+              duration: 2.5,
+              ease: "easeInOut",
+              repeat: Infinity,
+              repeatType: "reverse",
+            }}
+          />
+        </div>
+
+        <div className="px-4 py-3">
+          {/* Main title */}
+          <div className="flex items-center gap-2 mb-3">
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              {isDSA ? (
+                <BookOpen className="w-4 h-4 text-[#003399]" />
+              ) : (
+                <Search className="w-4 h-4 text-[#003399]" />
+              )}
+            </motion.div>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#003399] font-medium">
+              {isDSA ? "DSA Regulation Analysis" : "Legal Research in Progress"}
+            </span>
+          </div>
+
+          {/* Animated steps */}
+          <div className="space-y-2">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <motion.div
+                  key={step.label}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: step.delay, duration: 0.3 }}
+                  className="flex items-center gap-2"
+                >
+                  <motion.div
+                    animate={{
+                      opacity: [0.4, 1, 0.4],
+                      scale: [0.95, 1, 0.95],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      delay: step.delay,
+                    }}
+                    className="w-5 h-5 rounded-full bg-[#003399]/10 flex items-center justify-center"
+                  >
+                    <Icon className="w-2.5 h-2.5 text-[#003399]" />
+                  </motion.div>
+                  <motion.span
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      delay: step.delay,
+                    }}
+                    className="text-xs text-[#57534e]"
+                  >
+                    {step.label}
+                  </motion.span>
+                  <motion.div
+                    className="flex-1 h-px bg-gradient-to-r from-[#e7e5e4] to-transparent"
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ delay: step.delay + 0.2, duration: 0.5 }}
+                    style={{ originX: 0 }}
+                  />
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Animated document lines */}
+          <div className="mt-3 space-y-1.5">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="h-1.5 bg-[#e7e5e4] rounded-full overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 + i * 0.15 }}
+              >
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[#003399]/20 to-[#003399]/5"
+                  initial={{ width: "0%" }}
+                  animate={{ width: ["0%", "100%", "60%", "90%", "75%"] }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                    ease: "easeInOut",
+                  }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer with regulation reference */}
+        <div className="px-4 py-2 bg-[#003399]/5 border-t border-[#003399]/10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Scale className="w-3 h-3 text-[#003399]/60" />
+              <span className="font-mono text-[9px] text-[#003399]/60 uppercase tracking-wider">
+                Regulation (EU) 2022/2065
+              </span>
+            </div>
+            <motion.div
+              className="flex gap-0.5"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  className="w-1 h-1 bg-[#003399] rounded-full"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{
+                    duration: 0.6,
+                    repeat: Infinity,
+                    delay: i * 0.15,
+                  }}
+                />
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Simple thinking animation when no tool is active
+function ThinkingAnimation() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-[85%]"
+    >
+      <div className="px-4 py-3 bg-gradient-to-br from-[#fafaf9] to-[#f5f5f4] border border-[#e7e5e4]">
+        <div className="flex items-center gap-3">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="w-6 h-6 rounded-full border-2 border-[#003399]/20 border-t-[#003399] flex items-center justify-center"
+          />
+          <div className="space-y-1">
+            <span className="text-xs text-[#57534e] font-medium">
+              Analyzing your query
+            </span>
+            <div className="flex gap-1">
+              {[0, 1, 2, 3].map((i) => (
+                <motion.span
+                  key={i}
+                  className="w-1 h-1 bg-[#003399]/40 rounded-full"
+                  animate={{ opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    delay: i * 0.1,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
 
 function MarkdownContent({ content }: { content: string }) {
   const sanitizedHtml = useMemo(() => {
-    const rawHtml = marked.parse(content ?? "", {
-      breaks: true,
+    const normalized = (content ?? "").replace(/\r\n/g, "\n");
+    const rawHtml = marked.parse(normalized, {
+      // Avoid turning every single newline into a <br/> (prevents "gappy" output).
+      breaks: false,
     }) as string;
-    return purifier ? purifier.sanitize(rawHtml) : rawHtml;
+    // Explicitly allow list elements in DOMPurify to ensure bullets render
+    return purifier
+      ? purifier.sanitize(rawHtml, {
+          ALLOWED_TAGS: [
+            "p",
+            "br",
+            "strong",
+            "em",
+            "u",
+            "s",
+            "code",
+            "pre",
+            "blockquote",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
+            "a",
+          ],
+          ALLOWED_ATTR: ["href", "title", "target", "rel"],
+        })
+      : rawHtml;
   }, [content]);
 
   return (
     <div
-      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-pre-wrap prose prose-sm max-w-none
+      className="markdown-content font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-normal wrap-break-word prose prose-sm max-w-none
         prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5
         prose-headings:text-[#0a0a0a] prose-headings:font-medium
         prose-a:text-[#003399] prose-a:no-underline hover:prose-a:underline
@@ -55,6 +304,120 @@ export interface ChatContext {
   phase: ChatPhase;
   companyName?: string;
   companyUrl?: string;
+  /**
+   * Snapshot of whatever the user is currently seeing in the UI.
+   * Only the currently-visible step should be populated (others undefined).
+   */
+  visibleUi?: {
+    app?: {
+      currentPhase: string;
+      researchStep?: string;
+      isManualEntry?: boolean;
+      completedPhases?: string[];
+    };
+    companyLookup?: {
+      state: "input" | "searching" | "found" | "not_found" | "error";
+      organizationName?: string;
+      countryOfEstablishment?: string;
+      isSearching?: boolean;
+      error?: string | null;
+      totalSourceCount?: number;
+      visibleSources?: Array<{ title?: string; url: string }>;
+      results?: {
+        input_name?: string;
+        exact_match?: {
+          name: string;
+          top_domain: string;
+          confidence: string;
+        } | null;
+        suggestions?: Array<{
+          name: string;
+          top_domain: string;
+          confidence: string;
+        }>;
+        selectedCompanyName?: string | null;
+      } | null;
+    };
+    deepResearch?: {
+      companyName: string;
+      phase: "research" | "summarization" | "finalizing";
+      totalSourceCount: number;
+      visibleSources: Array<{ title?: string; url: string }>;
+    };
+    review?: {
+      section: string;
+      currentStep: number;
+      totalSteps: number;
+      acceptedCount: number;
+      totalFindings: number;
+      allAccepted: boolean;
+      editingIndex: number | null;
+      editValue: string;
+      findings: Array<{
+        question: string;
+        answer: string;
+        source: string;
+        confidence: string;
+        accepted: boolean;
+        edited: boolean;
+      }>;
+    };
+    manualEntry?: {
+      section: string;
+      currentStep: number;
+      totalSteps: number;
+      filledCount: number;
+      totalQuestions: number;
+      allFilled: boolean;
+      fields: Array<{
+        id: string;
+        question: string;
+        answer: string;
+        placeholder?: string;
+        helpText?: string;
+      }>;
+    };
+    classification?: {
+      stage: string;
+      isProcessing: boolean;
+      streamedText?: string;
+      expandedSections?: string[];
+      classificationSummary?: string;
+      classification?: {
+        territorial?: { in_scope: boolean; reasoning?: string };
+        service?: {
+          service_category: string;
+          is_intermediary: boolean;
+          is_online_platform: boolean;
+          is_marketplace: boolean;
+          is_search_engine: boolean;
+          platform_reasoning?: string;
+        };
+        size?: {
+          is_vlop_vlose: boolean;
+          qualifies_for_sme_exemption?: boolean;
+          reasoning?: string;
+        };
+      };
+    };
+    report?: {
+      activeTab: "overview" | "obligations" | "company" | "download";
+      obligationsFilter?: "all" | "applicable" | "not-applicable";
+      selectedObligation?: {
+        article: string;
+        title: string;
+        applies: boolean;
+        implications: string;
+        action_items: string[];
+      } | null;
+      visibleObligations?: Array<{
+        article: string;
+        title: string;
+        applies: boolean;
+        action_items_count: number;
+      }>;
+    };
+  };
   researchData?: {
     geographicalScope?: Array<{
       question: string;
@@ -88,8 +451,23 @@ export interface ChatContext {
   };
 }
 
+export type ContextMode = "review_findings" | "obligations" | "general";
+
 interface ChatPopupProps {
   context: ChatContext;
+  /**
+   * When this changes to a non-empty string, the chat will open and this question
+   * will be sent automatically. The parent should reset this to empty after use.
+   */
+  initialQuestion?: string;
+  /**
+   * Called when initialQuestion has been consumed (after sending)
+   */
+  onInitialQuestionSent?: () => void;
+  /**
+   * Context mode for specialized behavior (review_findings, obligations, general)
+   */
+  contextMode?: ContextMode;
 }
 
 // Contextual suggestions based on current phase
@@ -173,7 +551,7 @@ function buildContextString(context: ChatContext): string {
   const phaseLabels: Record<ChatPhase, string> = {
     company_match: "Company Lookup",
     deep_research: "Deep Research in Progress",
-    review_scope: "Reviewing Geographical Scope",
+    review_scope: "Reviewing Territorial scope",
     review_size: "Reviewing Company Size",
     review_type: "Reviewing Service Type",
     classify: "Service Classification",
@@ -181,6 +559,215 @@ function buildContextString(context: ChatContext): string {
   };
 
   parts.push(`Current Step: ${phaseLabels[context.phase]}`);
+
+  // Visible UI snapshot (best-effort: "whatever user can see right now")
+  if (context.visibleUi) {
+    const ui = context.visibleUi;
+
+    if (ui.app) {
+      parts.push("\n--- Visible UI: App State ---");
+      parts.push(`Current phase: ${ui.app.currentPhase}`);
+      if (ui.app.researchStep)
+        parts.push(`Research step: ${ui.app.researchStep}`);
+      if (ui.app.isManualEntry !== undefined) {
+        parts.push(`Manual entry mode: ${ui.app.isManualEntry ? "Yes" : "No"}`);
+      }
+      if (ui.app.completedPhases && ui.app.completedPhases.length > 0) {
+        parts.push(`Completed phases: ${ui.app.completedPhases.join(", ")}`);
+      }
+    }
+
+    if (ui.companyLookup) {
+      parts.push("\n--- Visible UI: Company Lookup ---");
+      parts.push(`Screen state: ${ui.companyLookup.state}`);
+      if (ui.companyLookup.organizationName !== undefined) {
+        parts.push(
+          `Organization name input: ${ui.companyLookup.organizationName}`
+        );
+      }
+      if (ui.companyLookup.countryOfEstablishment !== undefined) {
+        parts.push(
+          `Country of establishment input: ${ui.companyLookup.countryOfEstablishment}`
+        );
+      }
+      if (ui.companyLookup.error) {
+        parts.push(`Error: ${ui.companyLookup.error}`);
+      }
+      if (ui.companyLookup.totalSourceCount !== undefined) {
+        parts.push(
+          `Sources analyzed (visible): ${ui.companyLookup.totalSourceCount}`
+        );
+      }
+      if (
+        ui.companyLookup.visibleSources &&
+        ui.companyLookup.visibleSources.length > 0
+      ) {
+        parts.push("Visible sources:");
+        ui.companyLookup.visibleSources.forEach((s) =>
+          parts.push(`- ${s.title ? `${s.title} — ` : ""}${s.url}`)
+        );
+      }
+      if (ui.companyLookup.results) {
+        parts.push("Visible results:");
+        if (ui.companyLookup.results.exact_match) {
+          const m = ui.companyLookup.results.exact_match;
+          parts.push(
+            `- Exact match: ${m.name} (${m.top_domain || "no domain"}) [${
+              m.confidence
+            }]`
+          );
+        }
+        if (
+          ui.companyLookup.results.suggestions &&
+          ui.companyLookup.results.suggestions.length > 0
+        ) {
+          ui.companyLookup.results.suggestions.forEach((s) =>
+            parts.push(
+              `- Suggestion: ${s.name} (${s.top_domain || "no domain"}) [${
+                s.confidence
+              }]`
+            )
+          );
+        }
+        if (ui.companyLookup.results.selectedCompanyName) {
+          parts.push(
+            `Selected in UI: ${ui.companyLookup.results.selectedCompanyName}`
+          );
+        }
+      }
+    }
+
+    if (ui.deepResearch) {
+      parts.push("\n--- Visible UI: Deep Research ---");
+      parts.push(`Company: ${ui.deepResearch.companyName}`);
+      parts.push(`Phase: ${ui.deepResearch.phase}`);
+      parts.push(`Sources analyzed: ${ui.deepResearch.totalSourceCount}`);
+      if (ui.deepResearch.visibleSources.length > 0) {
+        parts.push("Visible sources:");
+        ui.deepResearch.visibleSources.forEach((s) =>
+          parts.push(`- ${s.title ? `${s.title} — ` : ""}${s.url}`)
+        );
+      }
+    }
+
+    if (ui.review) {
+      parts.push("\n--- Visible UI: Review Findings ---");
+      parts.push(`Section: ${ui.review.section}`);
+      parts.push(
+        `Progress: ${ui.review.currentStep} / ${ui.review.totalSteps}`
+      );
+      parts.push(
+        `Confirmed: ${ui.review.acceptedCount} / ${ui.review.totalFindings} (allAccepted=${ui.review.allAccepted})`
+      );
+      if (ui.review.editingIndex !== null) {
+        parts.push(`Editing index: ${ui.review.editingIndex}`);
+        parts.push(`Editing value: ${ui.review.editValue}`);
+      }
+      parts.push("Visible findings:");
+      ui.review.findings.forEach((f) => {
+        const flags = [
+          f.accepted ? "accepted" : "not accepted",
+          f.edited ? "edited" : "not edited",
+        ].join(", ");
+        parts.push(`Q: ${f.question}`);
+        parts.push(`A: ${f.answer}`);
+        parts.push(
+          `Source: ${f.source} · Confidence: ${f.confidence} · ${flags}`
+        );
+      });
+    }
+
+    if (ui.manualEntry) {
+      parts.push("\n--- Visible UI: Manual Data Entry ---");
+      parts.push(`Section: ${ui.manualEntry.section}`);
+      parts.push(
+        `Progress: ${ui.manualEntry.currentStep} / ${ui.manualEntry.totalSteps}`
+      );
+      parts.push(
+        `Answered: ${ui.manualEntry.filledCount} / ${ui.manualEntry.totalQuestions} (allFilled=${ui.manualEntry.allFilled})`
+      );
+      parts.push("Visible fields:");
+      ui.manualEntry.fields.forEach((f) => {
+        parts.push(`Q: ${f.question}`);
+        parts.push(`A: ${f.answer}`);
+      });
+    }
+
+    if (ui.classification) {
+      parts.push("\n--- Visible UI: Service Classification ---");
+      parts.push(`Stage: ${ui.classification.stage}`);
+      parts.push(
+        `Processing: ${ui.classification.isProcessing ? "Yes" : "No"}`
+      );
+      if (
+        ui.classification.expandedSections &&
+        ui.classification.expandedSections.length > 0
+      ) {
+        parts.push(
+          `Expanded sections: ${ui.classification.expandedSections.join(", ")}`
+        );
+      }
+      if (ui.classification.streamedText) {
+        parts.push("Streamed text (tail):");
+        parts.push(ui.classification.streamedText);
+      }
+      if (ui.classification.classificationSummary) {
+        parts.push(`Summary: ${ui.classification.classificationSummary}`);
+      }
+      if (ui.classification.classification) {
+        const c = ui.classification.classification;
+        if (c.territorial) {
+          parts.push(
+            `Territorial scope: ${
+              c.territorial.in_scope ? "In scope" : "Out of scope"
+            }`
+          );
+        }
+        if (c.service) {
+          parts.push(`Service category: ${c.service.service_category}`);
+          parts.push(
+            `Flags: intermediary=${c.service.is_intermediary}, platform=${c.service.is_online_platform}, marketplace=${c.service.is_marketplace}, search=${c.service.is_search_engine}`
+          );
+        }
+        if (c.size) {
+          parts.push(
+            `Size: vlop=${c.size.is_vlop_vlose}, sme_exemption=${
+              c.size.qualifies_for_sme_exemption ?? "unknown"
+            }`
+          );
+        }
+      }
+    }
+
+    if (ui.report) {
+      parts.push("\n--- Visible UI: Compliance Report ---");
+      parts.push(`Active tab: ${ui.report.activeTab}`);
+      if (ui.report.obligationsFilter) {
+        parts.push(`Obligations filter: ${ui.report.obligationsFilter}`);
+      }
+      if (ui.report.selectedObligation) {
+        const o = ui.report.selectedObligation;
+        parts.push(`Selected obligation: Article ${o.article} — ${o.title}`);
+        parts.push(`Applies: ${o.applies ? "Yes" : "No"}`);
+        parts.push(`Implications: ${o.implications}`);
+        if (o.action_items?.length) {
+          parts.push("Action items:");
+          o.action_items.forEach((a) => parts.push(`- ${a}`));
+        }
+      }
+      if (
+        ui.report.visibleObligations &&
+        ui.report.visibleObligations.length > 0
+      ) {
+        parts.push("Visible obligations list:");
+        ui.report.visibleObligations.forEach((o) =>
+          parts.push(
+            `- Article ${o.article}: ${o.title} (applies=${o.applies}, action_items=${o.action_items_count})`
+          )
+        );
+      }
+    }
+  }
 
   // Company info
   if (context.companyName) {
@@ -196,7 +783,7 @@ function buildContextString(context: ChatContext): string {
       context.researchData;
 
     if (geographicalScope && geographicalScope.length > 0) {
-      parts.push("\n--- Geographical Scope Findings ---");
+      parts.push("\n--- Territorial scope Findings ---");
       geographicalScope.forEach((item) => {
         parts.push(`Q: ${item.question}`);
         parts.push(`A: ${item.answer} (${item.confidence} confidence)`);
@@ -269,7 +856,12 @@ function buildContextString(context: ChatContext): string {
   return parts.join("\n");
 }
 
-export function ChatPopup({ context }: ChatPopupProps) {
+export function ChatPopup({
+  context,
+  initialQuestion,
+  onInitialQuestionSent,
+  contextMode = "general",
+}: ChatPopupProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showHint, setShowHint] = useState(true);
 
@@ -310,6 +902,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
       setIsStreaming(false);
       setStreamingContent("");
       setCurrentTool(null);
+      setLastTool(null);
       previousPhaseRef.current = context.phase;
     } else {
       // Only phase didn't change, just update welcome if it's still the only message
@@ -348,6 +941,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [currentTool, setCurrentTool] = useState<string | null>(null);
+  const [lastTool, setLastTool] = useState<string | null>(null);
   const [hasUnread, setHasUnread] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -382,6 +976,19 @@ export function ChatPopup({ context }: ChatPopupProps) {
     }
   }, [context.phase, isOpen]);
 
+  // Handle initial question
+  useEffect(() => {
+    if (initialQuestion && initialQuestion.trim()) {
+      // Open the chat
+      setIsOpen(true);
+      // Send the question after a short delay to ensure the chat is open
+      setTimeout(() => {
+        handleSend(initialQuestion);
+        onInitialQuestionSent?.();
+      }, 100);
+    }
+  }, [initialQuestion]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSend = useCallback(
     async (messageText?: string) => {
       const text = messageText || input;
@@ -408,6 +1015,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
             body: JSON.stringify({
               message: userMessage.content,
               frontend_context: fullContext,
+              context_mode: contextMode,
             }),
           }
         );
@@ -435,7 +1043,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
-              const data = line.slice(6);
+              const data = line.slice(6).trim();
               try {
                 const event = JSON.parse(data) as StreamEvent;
 
@@ -443,16 +1051,23 @@ export function ChatPopup({ context }: ChatPopupProps) {
                   case "token":
                     fullContent += event.content;
                     setStreamingContent(fullContent);
+                    // Once content starts, clear lastTool so animation disappears
+                    if (fullContent) {
+                      setLastTool(null);
+                    }
                     break;
                   case "tool_start":
                     setCurrentTool(event.name);
+                    setLastTool(event.name);
                     break;
                   case "tool_end":
+                    // Keep lastTool for continuity between tools
                     setCurrentTool(null);
                     break;
                   case "error":
                   case "done":
                     setCurrentTool(null);
+                    setLastTool(null);
                     break;
                 }
               } catch {
@@ -489,6 +1104,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
         setIsStreaming(false);
         setStreamingContent("");
         setCurrentTool(null);
+        setLastTool(null);
       }
     },
     [input, isStreaming, fullContext, isOpen]
@@ -522,7 +1138,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
             )}
             aria-label="Open Corinna"
           >
-            <Gavel className="w-5 h-5 transition-transform group-hover:scale-105" />
+            <MessageCircle className="w-5 h-5 transition-transform group-hover:scale-105" />
             {hasUnread && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#003399] border-2 border-white" />
             )}
@@ -545,7 +1161,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
               onClick={() => setIsOpen(true)}
             >
               <div className="flex items-center gap-2">
-                <Gavel className="w-3.5 h-3.5 text-[#003399]" />
+                <MessageCircle className="w-3.5 h-3.5 text-[#003399]" />
                 <span className="text-xs text-[#57534e] font-medium">
                   {hint}
                 </span>
@@ -578,13 +1194,12 @@ export function ChatPopup({ context }: ChatPopupProps) {
             <div className="shrink-0 px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#0a0a0a] flex items-center justify-center">
-                  <Gavel className="w-4 h-4 text-white" />
+                  <MessageCircle className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-sm text-[#0a0a0a]">Corinna</h3>
-                  <p className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
-                    DSA Compliance
-                  </p>
+                  <h3 className="font-serif text-xl text-[#0a0a0a] leading-none">
+                    Corinna chat
+                  </h3>
                 </div>
               </div>
               <button
@@ -636,27 +1251,27 @@ export function ChatPopup({ context }: ChatPopupProps) {
                 ))}
               </AnimatePresence>
 
-              {/* Tool indicator */}
-              <AnimatePresence>
-                {currentTool && (
-                  <motion.div
-                    key={currentTool}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="flex gap-2 justify-start"
-                  >
-                    <div className="max-w-[85%] px-3 py-1.5 bg-[#003399]/5 border border-[#003399]/10 text-[#003399] flex items-center gap-2">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span className="font-mono text-[10px] uppercase tracking-wider">
-                        {toolLabels[currentTool] || `Using ${currentTool}`}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
+              {/* Legal loading animation when using tools or between tools */}
+              <AnimatePresence mode="wait">
+                {isStreaming &&
+                  !streamingContent &&
+                  (currentTool || lastTool) && (
+                    <motion.div
+                      key={`tool-${currentTool || lastTool}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.3 }}
+                      className="flex justify-start"
+                    >
+                      <LegalLoadingAnimation
+                        tool={currentTool || lastTool || ""}
+                      />
+                    </motion.div>
+                  )}
               </AnimatePresence>
 
-              {/* Streaming message */}
+              {/* Streaming answer */}
               {isStreaming && streamingContent && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -664,7 +1279,7 @@ export function ChatPopup({ context }: ChatPopupProps) {
                   className="flex gap-2 justify-start"
                 >
                   <div className="max-w-[85%] px-3 py-2 bg-[#f5f5f4] border border-[#e7e5e4]">
-                    <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-pre-wrap">
+                    <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-normal wrap-break-word">
                       <MarkdownContent content={streamingContent} />
                       <span className="inline-block w-0.5 h-4 bg-[#0a0a0a] ml-0.5 animate-pulse align-middle" />
                     </div>
@@ -672,29 +1287,24 @@ export function ChatPopup({ context }: ChatPopupProps) {
                 </motion.div>
               )}
 
-              {/* Loading indicator when no content yet */}
-              {isStreaming && !streamingContent && !currentTool && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-2 justify-start"
-                >
-                  <div className="px-3 py-2 bg-[#f5f5f4] border border-[#e7e5e4] flex gap-1.5">
-                    <span
-                      className="w-1.5 h-1.5 bg-[#78716c] animate-pulse"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <span
-                      className="w-1.5 h-1.5 bg-[#78716c] animate-pulse"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <span
-                      className="w-1.5 h-1.5 bg-[#78716c] animate-pulse"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
-                </motion.div>
-              )}
+              {/* Thinking animation when streaming but no content or tools yet */}
+              <AnimatePresence mode="wait">
+                {isStreaming &&
+                  !streamingContent &&
+                  !currentTool &&
+                  !lastTool && (
+                    <motion.div
+                      key="thinking"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex justify-start"
+                    >
+                      <ThinkingAnimation />
+                    </motion.div>
+                  )}
+              </AnimatePresence>
 
               <div ref={messagesEndRef} />
             </div>
@@ -767,4 +1377,3 @@ export function ChatPopup({ context }: ChatPopupProps) {
     </>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -24,6 +24,7 @@ import {
   BookOpen,
   ListChecks,
   ArrowLeft,
+  MessageCircle,
 } from "lucide-react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -33,11 +34,20 @@ import type {
   ObligationAnalysis,
   CompanyProfile,
 } from "@/types/api";
+import type { ChatContext } from "./ChatPopup";
 
 interface ComplianceDashboardProps {
   report: ComplianceReport;
   companyProfile: CompanyProfile;
   onBack?: () => void;
+  /**
+   * Emits a snapshot of what the user can currently see in this screen.
+   */
+  onVisibleStateChange?: (state: ChatContext["visibleUi"]) => void;
+  /**
+   * Called when user clicks "Ask Corinna" on an obligation
+   */
+  onAskCorinna?: (obligation: ObligationAnalysis) => void;
 }
 
 type DashboardTab = "overview" | "obligations" | "company" | "download";
@@ -70,10 +80,15 @@ export function ComplianceDashboard({
   report,
   companyProfile,
   onBack,
+  onVisibleStateChange,
+  onAskCorinna,
 }: ComplianceDashboardProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [selectedObligation, setSelectedObligation] =
     useState<ObligationAnalysis | null>(null);
+  const [obligationsFilter, setObligationsFilter] = useState<
+    "all" | "applicable" | "not-applicable"
+  >("applicable");
 
   const applicableObligations = useMemo(
     () => report.obligations.filter((o) => o.applies),
@@ -84,6 +99,62 @@ export function ComplianceDashboard({
     () => report.obligations.filter((o) => !o.applies),
     [report.obligations]
   );
+
+  const visibleObligations = useMemo(() => {
+    if (activeTab === "overview") {
+      return report.obligations
+        .filter((o) => o.applies)
+        .slice(0, 5)
+        .map((o) => ({
+          article: o.article,
+          title: o.title,
+          applies: o.applies,
+          action_items_count: o.action_items.length,
+        }));
+    }
+    if (activeTab === "obligations") {
+      const filtered =
+        obligationsFilter === "applicable"
+          ? report.obligations.filter((o) => o.applies)
+          : obligationsFilter === "not-applicable"
+          ? report.obligations.filter((o) => !o.applies)
+          : report.obligations;
+      return filtered.map((o) => ({
+        article: o.article,
+        title: o.title,
+        applies: o.applies,
+        action_items_count: o.action_items.length,
+      }));
+    }
+    return undefined;
+  }, [activeTab, obligationsFilter, report.obligations]);
+
+  useEffect(() => {
+    if (!onVisibleStateChange) return;
+    onVisibleStateChange({
+      report: {
+        activeTab,
+        obligationsFilter:
+          activeTab === "obligations" ? obligationsFilter : undefined,
+        selectedObligation: selectedObligation
+          ? {
+              article: selectedObligation.article,
+              title: selectedObligation.title,
+              applies: selectedObligation.applies,
+              implications: selectedObligation.implications,
+              action_items: selectedObligation.action_items,
+            }
+          : null,
+        visibleObligations,
+      },
+    });
+  }, [
+    onVisibleStateChange,
+    activeTab,
+    obligationsFilter,
+    selectedObligation,
+    visibleObligations,
+  ]);
 
   return (
     <div className="w-full">
@@ -146,6 +217,9 @@ export function ComplianceDashboard({
               obligations={report.obligations}
               selectedObligation={selectedObligation}
               onSelectObligation={setSelectedObligation}
+              filter={obligationsFilter}
+              onFilterChange={setObligationsFilter}
+              onAskCorinna={onAskCorinna}
             />
           )}
           {activeTab === "company" && (
@@ -354,17 +428,19 @@ interface ObligationsTabProps {
   obligations: ObligationAnalysis[];
   selectedObligation: ObligationAnalysis | null;
   onSelectObligation: (o: ObligationAnalysis | null) => void;
+  filter: "all" | "applicable" | "not-applicable";
+  onFilterChange: (f: "all" | "applicable" | "not-applicable") => void;
+  onAskCorinna?: (obligation: ObligationAnalysis) => void;
 }
 
 function ObligationsTab({
   obligations,
   selectedObligation,
   onSelectObligation,
+  filter,
+  onFilterChange,
+  onAskCorinna,
 }: ObligationsTabProps) {
-  const [filter, setFilter] = useState<"all" | "applicable" | "not-applicable">(
-    "applicable"
-  );
-
   const filteredObligations = useMemo(() => {
     switch (filter) {
       case "applicable":
@@ -402,7 +478,7 @@ function ObligationsTab({
           ].map((f) => (
             <button
               key={f.id}
-              onClick={() => setFilter(f.id)}
+              onClick={() => onFilterChange(f.id)}
               className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors cursor-pointer ${
                 filter === f.id
                   ? "bg-white text-[#0a0a0a] shadow-sm"
@@ -439,6 +515,7 @@ function ObligationsTab({
             <ObligationDetail
               obligation={selectedObligation}
               onClose={() => onSelectObligation(null)}
+              onAskCorinna={onAskCorinna}
             />
           </motion.div>
         )}
@@ -514,9 +591,14 @@ function ObligationCard({
 interface ObligationDetailProps {
   obligation: ObligationAnalysis;
   onClose: () => void;
+  onAskCorinna?: (obligation: ObligationAnalysis) => void;
 }
 
-function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
+function ObligationDetail({
+  obligation,
+  onClose,
+  onAskCorinna,
+}: ObligationDetailProps) {
   return (
     <div className="bg-white border border-[#e7e5e4] sticky top-6">
       {/* Header */}
@@ -525,12 +607,26 @@ function ObligationDetail({ obligation, onClose }: ObligationDetailProps) {
           <span className="font-mono text-[10px] text-[#003399] uppercase tracking-wider bg-[#003399]/5 px-2 py-0.5">
             Article {obligation.article}
           </span>
-          <button
-            onClick={onClose}
-            className="text-[#78716c] hover:text-[#0a0a0a] cursor-pointer text-lg leading-none"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2">
+            {onAskCorinna && (
+              <button
+                onClick={() => onAskCorinna(obligation)}
+                className="px-2 py-1 flex items-center gap-1.5 text-[#78716c] hover:text-[#003399] transition-colors"
+                title="Ask Corinna about this obligation"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="font-sans text-xs whitespace-nowrap">
+                  Ask Corinna
+                </span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-[#78716c] hover:text-[#0a0a0a] cursor-pointer text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
         </div>
         <h3 className="font-sans text-sm font-medium text-[#0a0a0a]">
           {obligation.title}
@@ -732,7 +828,7 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {companyProfile.research_answers.geographical_scope && (
               <ResearchSection
-                title="Geographical Scope"
+                title="Territorial scope"
                 answers={companyProfile.research_answers.geographical_scope}
               />
             )}

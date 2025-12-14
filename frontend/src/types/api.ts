@@ -12,12 +12,18 @@ export interface CompanyMatcherRequest {
   country_of_establishment: string;
 }
 
+export interface CompanyMatch {
+  name: string;
+  top_domain: string;
+  confidence: "exact" | "high" | "medium" | "low" | string;
+  summary_short?: string | null;
+  summary_long: string;
+}
+
 export interface CompanyMatchResult {
-  matched: boolean;
-  company_name: string;
-  confidence: number;
-  source?: string;
-  details?: Record<string, unknown>;
+  input_name: string;
+  exact_match: CompanyMatch | null;
+  suggestions: CompanyMatch[];
 }
 
 // =============================================================================
@@ -26,12 +32,19 @@ export interface CompanyMatchResult {
 
 export interface CompanyResearcherRequest {
   company_name: string;
+  top_domain: string;
+  summary_long: string;
 }
 
 export interface SubQuestionAnswer {
   section: string;
   question: string;
   answer: string;
+  /**
+   * Explicit flag for when no relevant public information was found.
+   * Optional for backward compatibility with older responses.
+   */
+  information_found?: boolean;
   source: string;
   confidence: "High" | "Medium" | "Low";
   raw_research?: string;

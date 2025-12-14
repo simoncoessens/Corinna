@@ -6,10 +6,10 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List
+from urllib.parse import urlparse
 
 from jinja2 import Environment, FileSystemLoader
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -19,11 +19,11 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from company_matcher.models import CompanyMatch, CompanyMatchResult
 from company_matcher.state import CompanyMatcherInputState, CompanyMatcherState
 
-# Import Tavily tools
-# Path: backend/agents/company_matcher/src/company_matcher/graph.py
-# parents[3] = backend/agents/ where tools/ is located
-agents_path = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(agents_path))
+# Import shared Tavily tools from backend/agents/tools.
+# (This repo keeps shared tools outside this package, so we add backend/agents to sys.path.)
+_AGENTS_PATH = Path(__file__).resolve().parents[3]
+if str(_AGENTS_PATH) not in sys.path:
+    sys.path.insert(0, str(_AGENTS_PATH))
 from tools import tavily_search_tool
 
 
@@ -51,7 +51,7 @@ def load_prompt(template_name: str, **kwargs) -> str:
 # =============================================================================
 
 @tool
-async def web_search(queries: List[str], config: RunnableConfig = None) -> str:
+async def web_search(queries: list[str], config: RunnableConfig | None = None) -> str:
     """Search the web for company information using multiple queries.
     
     Args:
@@ -75,8 +75,23 @@ def finish_matching(result_json: str) -> str:
     Args:
         result_json: JSON string with the match result in this format:
         {
-          "exact_match": {"name": "...", "url": "...", "confidence": "exact"} OR null,
-          "suggestions": [{"name": "...", "url": "...", "confidence": "high|medium|low"}, ...]
+          "exact_match": {
+            "name": "...",
+            "top_domain": "...",
+            "confidence": "exact",
+            "summary_short": "...",
+            "summary_long": "..."
+          } OR null,
+          "suggestions": [
+            {
+              "name": "...",
+              "top_domain": "...",
+              "confidence": "high|medium|low",
+              "summary_short": "...",
+              "summary_long": "..."
+            },
+            ...
+          ]
         }
     
     Returns:
@@ -107,6 +122,21 @@ def _extract_company_name(messages: list) -> str:
 TOOLS = [web_search, finish_matching]
 tool_node = ToolNode(TOOLS)
 
+def _to_top_domain(value: str) -> str:
+    """Normalize a URL/domain-ish string into a top-domain hostname."""
+    v = (value or "").strip()
+    if not v:
+        return ""
+    # If it's a bare domain without scheme, urlparse puts it in path.
+    if "://" not in v:
+        v2 = v.split("/")[0]
+        return v2.replace("www.", "")
+    try:
+        host = urlparse(v).hostname or ""
+        return host.replace("www.", "")
+    except Exception:
+        return v.split("/")[0].replace("www.", "")
+
 
 async def prepare_prompt(
     state: CompanyMatcherState, config: RunnableConfig | None = None
@@ -133,15 +163,9 @@ async def run_agent(
     state: CompanyMatcherState, config: RunnableConfig | None = None
 ) -> dict:
     """LLM step that decides whether to call tools or produce a final answer."""
-    api_key = None
-    base_url = None
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL")
+    api_keys = (config or {}).get("configurable", {}).get("apiKeys", {})
+    api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
 
     model = ChatOpenAI(
         model="deepseek-chat",
@@ -154,14 +178,31 @@ async def run_agent(
     return {"messages": [response]}
 
 
-def _parse_result_from_messages(messages: list[str | AIMessage | ToolMessage]) -> str:
-    """Extract the most recent JSON-looking payload from the conversation."""
+def _parse_result_from_messages(messages: list[BaseMessage | str]) -> str:
+    """Extract the most recent result JSON payload from the conversation.
+
+    Important: the initial prompt includes JSON examples, so we ignore HumanMessages
+    and only accept payloads that look like the real output schema.
+    """
     for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            continue
         content = getattr(message, "content", message)
-        if isinstance(content, str) and "{" in content:
-            json_start = content.find("{")
-            json_end = content.rfind("}") + 1
-            return content[json_start:json_end]
+        if not isinstance(content, str):
+            continue
+        if "{" not in content:
+            continue
+        # Heuristic: require the expected keys to avoid parsing the prompt examples.
+        if '"exact_match"' not in content or '"suggestions"' not in content:
+            continue
+        json_start = content.find("{")
+        json_end = content.rfind("}") + 1
+        candidate = content[json_start:json_end]
+        try:
+            json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        return candidate
     return "{}"
 
 
@@ -177,11 +218,44 @@ async def finalize_result(
     except json.JSONDecodeError:
         parsed = {"exact_match": None, "suggestions": []}
 
+    def _normalize_match_dict(d: dict) -> dict:
+        # Accept legacy "url" and convert to top_domain if needed.
+        if not d.get("top_domain"):
+            if d.get("url"):
+                d["top_domain"] = _to_top_domain(str(d.get("url")))
+            elif d.get("domain"):
+                d["top_domain"] = _to_top_domain(str(d.get("domain")))
+
+        # Accept legacy "description" while preferring summary_short/summary_long.
+        if not d.get("summary_short") and d.get("description"):
+            d["summary_short"] = d["description"]
+
+        # Accept a few common "long summary" aliases.
+        if not d.get("summary_long"):
+            for key in (
+                "extended_summary",
+                "summary_extended",
+                "long_summary",
+                "description_long",
+                "description_extended",
+            ):
+                if d.get(key):
+                    d["summary_long"] = d[key]
+                    break
+
+        # summary_long is required by the API schema; if the model didn't provide it,
+        # fall back to whatever short summary we have so parsing never crashes.
+        if not d.get("summary_long"):
+            d["summary_long"] = d.get("summary_short") or d.get("description") or ""
+        return d
+
     exact_match = None
     if parsed.get("exact_match"):
-        exact_match = CompanyMatch(**parsed["exact_match"])
+        exact_match = CompanyMatch(**_normalize_match_dict(parsed["exact_match"]))
 
-    suggestions = [CompanyMatch(**s) for s in parsed.get("suggestions", [])]
+    suggestions = [
+        CompanyMatch(**_normalize_match_dict(s)) for s in parsed.get("suggestions", [])
+    ]
 
     result = CompanyMatchResult(
         input_name=company_name or "Unknown",

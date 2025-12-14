@@ -17,8 +17,10 @@ const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
 
 function MarkdownContent({ content }: { content: string }) {
   const sanitizedHtml = useMemo(() => {
-    const rawHtml = marked.parse(content ?? "", {
-      breaks: true,
+    const normalized = (content ?? "").replace(/\r\n/g, "\n");
+    const rawHtml = marked.parse(normalized, {
+      // Avoid turning every single newline into a <br/> (prevents "gappy" output).
+      breaks: false,
     }) as string;
     // Fallback to raw HTML if purifier not ready (should only happen during SSR)
     return purifier ? purifier.sanitize(rawHtml) : rawHtml;
@@ -26,7 +28,7 @@ function MarkdownContent({ content }: { content: string }) {
 
   return (
     <div
-      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-pre-wrap"
+      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-normal wrap-break-word"
       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
     />
   );
@@ -121,7 +123,7 @@ export function Chatbot({ context }: ChatbotProps) {
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
-            const data = line.slice(6);
+            const data = line.slice(6).trim();
             try {
               const event = JSON.parse(data) as StreamEvent;
 
@@ -245,7 +247,7 @@ export function Chatbot({ context }: ChatbotProps) {
           >
             <div className="max-w-[85%] px-3 py-2 bg-[#f5f5f4]">
               {streamingContent ? (
-                <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-pre-wrap">
+                <div className="font-sans text-sm text-[#0a0a0a] leading-relaxed whitespace-normal wrap-break-word">
                   <MarkdownContent content={streamingContent} />
                   <span className="inline-block w-1 h-4 bg-[#0a0a0a] ml-0.5 animate-pulse align-middle" />
                 </div>

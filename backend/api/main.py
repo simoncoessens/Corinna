@@ -86,6 +86,8 @@ class CompanyMatcherRequest(BaseModel):
 class CompanyResearcherRequest(BaseModel):
     """Request for company researcher."""
     company_name: str
+    top_domain: Optional[str] = None
+    summary_long: Optional[str] = None
 
 
 class ServiceCategorizerRequest(BaseModel):
@@ -97,6 +99,7 @@ class MainAgentRequest(BaseModel):
     """Request for main agent."""
     message: str
     frontend_context: Optional[str] = None
+    context_mode: Optional[str] = None  # "review_findings", "obligations", or "general"
 
 
 # =============================================================================
@@ -191,6 +194,12 @@ async def stream_agent_events(
                 sources = []
                 if event_name == "web_search" and output_str:
                     import re
+                    def clean_url(u: str) -> str:
+                        u = (u or "").strip()
+                        # Sometimes tool outputs are stringified with escaped newlines.
+                        u = u.replace("\\n", "").replace("\\t", "")
+                        # Strip common trailing punctuation/quotes.
+                        return u.rstrip(").,;]}>\"'")
                     # Find URLs in the output
                     url_pattern = r'https?://[^\s\n]+'
                     urls = re.findall(url_pattern, output_str)
@@ -198,9 +207,9 @@ async def stream_agent_events(
                     title_pattern = r'\*\*([^*]+)\*\*\n\s+(https?://[^\s\n]+)'
                     title_matches = re.findall(title_pattern, output_str)
                     if title_matches:
-                        sources = [{"title": t.strip(), "url": u.strip()} for t, u in title_matches[:8]]
+                        sources = [{"title": t.strip(), "url": clean_url(u)} for t, u in title_matches[:8]]
                     elif urls:
-                        sources = [{"url": u.strip()} for u in urls[:8]]
+                        sources = [{"url": clean_url(u)} for u in urls[:8]]
                 
                 tool_end_data = {
                     'type': 'tool_end',
@@ -448,7 +457,10 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         raise HTTPException(status_code=400, detail="Company name is required")
     
     input_state: CompanyResearchInputState = {
-        "messages": [HumanMessage(content=request.company_name.strip())]
+        "messages": [HumanMessage(content=request.company_name.strip())],
+        "company_name": request.company_name.strip(),
+        "top_domain": (request.top_domain or "").strip() or None,
+        "summary_long": (request.summary_long or "").strip() or None,
     }
     
     def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -483,7 +495,10 @@ async def company_researcher_invoke(request: CompanyResearcherRequest):
     
     try:
         input_state: CompanyResearchInputState = {
-            "messages": [HumanMessage(content=request.company_name.strip())]
+            "messages": [HumanMessage(content=request.company_name.strip())],
+            "company_name": request.company_name.strip(),
+            "top_domain": (request.top_domain or "").strip() or None,
+            "summary_long": (request.summary_long or "").strip() or None,
         }
         result = await company_researcher.ainvoke(input_state)
         final_report = result.get("final_report", "")
@@ -568,6 +583,7 @@ async def main_agent_stream(request: MainAgentRequest):
     input_state: MainAgentInputState = {
         "messages": [HumanMessage(content=request.message.strip())],
         "frontend_context": request.frontend_context,
+        "context_mode": request.context_mode,
     }
     
     def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -603,6 +619,7 @@ async def main_agent_invoke(request: MainAgentRequest):
         input_state: MainAgentInputState = {
             "messages": [HumanMessage(content=request.message.strip())],
             "frontend_context": request.frontend_context,
+            "context_mode": request.context_mode,
         }
         result = await main_agent.ainvoke(input_state)
         messages = result.get("messages", [])

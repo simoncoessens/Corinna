@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe,
@@ -25,11 +25,16 @@ import type {
   ComplianceReport,
   StreamEvent,
 } from "@/types/api";
+import type { ChatContext } from "./ChatPopup";
 
 interface ServiceClassificationProps {
   companyProfile: CompanyProfile;
   onComplete: (report: ComplianceReport) => void;
   onError: (error: string) => void;
+  /**
+   * Emits a snapshot of what the user can currently see in this screen.
+   */
+  onVisibleStateChange?: (state: ChatContext["visibleUi"]) => void;
 }
 
 type ClassificationStage =
@@ -65,6 +70,7 @@ export function ServiceClassification({
   companyProfile,
   onComplete,
   onError,
+  onVisibleStateChange,
 }: ServiceClassificationProps) {
   const [stage, setStage] = useState<ClassificationStage>("starting");
   const [streamedText, setStreamedText] = useState<string>("");
@@ -90,6 +96,61 @@ export function ServiceClassification({
       return next;
     });
   };
+
+  const streamedTextTail = useMemo(() => {
+    if (!streamedText) return undefined;
+    // Keep context bounded; user only sees the latest portion in the UI anyway.
+    const max = 1200;
+    return streamedText.length > max ? streamedText.slice(-max) : streamedText;
+  }, [streamedText]);
+
+  useEffect(() => {
+    if (!onVisibleStateChange) return;
+    onVisibleStateChange({
+      classification: {
+        stage: stageLabels[stage] || stage,
+        isProcessing,
+        streamedText: streamedTextTail,
+        expandedSections: Array.from(expandedSections),
+        classificationSummary: classification?.summary,
+        classification: classification
+          ? {
+              territorial: {
+                in_scope: classification.territorial_scope.is_in_scope,
+                reasoning: classification.territorial_scope.reasoning,
+              },
+              service: {
+                service_category:
+                  classification.service_classification.service_category,
+                is_intermediary:
+                  classification.service_classification.is_intermediary,
+                is_online_platform:
+                  classification.service_classification.is_online_platform,
+                is_marketplace:
+                  classification.service_classification.is_marketplace,
+                is_search_engine:
+                  classification.service_classification.is_search_engine,
+                platform_reasoning:
+                  classification.service_classification.platform_reasoning,
+              },
+              size: {
+                is_vlop_vlose: classification.size_designation.is_vlop_vlose,
+                qualifies_for_sme_exemption:
+                  classification.size_designation.qualifies_for_sme_exemption,
+                reasoning: classification.size_designation.reasoning,
+              },
+            }
+          : undefined,
+      },
+    });
+  }, [
+    onVisibleStateChange,
+    stage,
+    isProcessing,
+    streamedTextTail,
+    expandedSections,
+    classification,
+  ]);
 
   useEffect(() => {
     if (streamRef.current) return;

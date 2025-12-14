@@ -1,30 +1,40 @@
 """Data models for Company Matcher output."""
 
-from typing import List, Optional
+from pydantic import ConfigDict
 from pydantic import BaseModel, Field
 
 
 class CompanyMatch(BaseModel):
     """A single company match result."""
-    
+
+    model_config = ConfigDict(extra="ignore")
+
     name: str = Field(description="Company name")
-    url: str = Field(description="Company website URL")
+    top_domain: str = Field(
+        description="Company top domain only (e.g., 'company.com', no scheme/path)",
+    )
     confidence: str = Field(description="Match confidence: exact, high, medium, low")
-    description: Optional[str] = Field(
+
+    summary_short: str | None = Field(
         default=None,
-        description="Short company description (1-2 sentences) based on sources",
+        description="Short company summary (1-2 sentences) based on sources",
+    )
+    summary_long: str = Field(
+        description="Extended company summary (can be extensive) based on sources",
     )
 
 
 class CompanyMatchResult(BaseModel):
     """Final output from company matcher."""
-    
+
+    model_config = ConfigDict(extra="ignore")
+
     input_name: str = Field(description="The input company name")
-    exact_match: Optional[CompanyMatch] = Field(
+    exact_match: CompanyMatch | None = Field(
         default=None,
         description="Exact match if found, null otherwise"
     )
-    suggestions: List[CompanyMatch] = Field(
+    suggestions: list[CompanyMatch] = Field(
         default_factory=list,
         description="List of closest matches if no exact match"
     )

@@ -5,6 +5,7 @@ from langgraph.graph import MessagesState
 
 class CompanyMatcherInputState(MessagesState):
     """Input state - messages containing the company name."""
+
     pass
 
 

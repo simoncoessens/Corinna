@@ -11,7 +11,19 @@ services:
       - QDRANT__SERVICE__GRPC_PORT=6334
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: snip-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
 volumes:
   qdrant_storage:
+    driver: local
+  redis_data:
     driver: local
 

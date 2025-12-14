@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Scale, AlertCircle, RotateCcw } from "lucide-react";
 import Link from "next/link";
@@ -9,12 +9,14 @@ import {
   CompanyMatcher,
   DeepResearch,
   ResearchReview,
+  ManualDataEntry,
   ChatPopup,
   ServiceClassification,
   ComplianceDashboard,
   type AssessmentPhase,
   type ChatPhase,
   type ChatContext,
+  type ContextMode,
 } from "@/components/assessment";
 import { Button } from "@/components/ui";
 import type {
@@ -22,13 +24,12 @@ import type {
   SubQuestionAnswer,
   ResearchSection,
 } from "@/types/research";
-import type { CompanyProfile, ComplianceReport } from "@/types/api";
-
-interface CompanyMatch {
-  name: string;
-  url: string;
-  confidence: string;
-}
+import type {
+  CompanyMatch,
+  CompanyProfile,
+  ComplianceReport,
+  ObligationAnalysis,
+} from "@/types/api";
 
 type ResearchStep =
   | "company_match"
@@ -36,6 +37,9 @@ type ResearchStep =
   | "review_scope"
   | "review_size"
   | "review_type"
+  | "manual_scope"
+  | "manual_size"
+  | "manual_type"
   | "complete"
   | "error";
 
@@ -55,6 +59,18 @@ export default function AssessmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [complianceReport, setComplianceReport] =
     useState<ComplianceReport | null>(null);
+  const [isManualEntry, setIsManualEntry] = useState(false);
+  const [visibleUiStep, setVisibleUiStep] =
+    useState<ChatContext["visibleUi"]>();
+  const [corinnaQuestion, setCorinnaQuestion] = useState<string>("");
+  const [contextMode, setContextMode] = useState<ContextMode>("general");
+
+  // Reset visible UI snapshot when the user navigates to a different step.
+  useEffect(() => {
+    // This is an intentional reset when the route-level step changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVisibleUiStep(undefined);
+  }, [currentPhase, researchStep]);
 
   // Build comprehensive chat context from all visible data
   const chatContext = useMemo((): ChatContext => {
@@ -73,12 +89,15 @@ export default function AssessmentPage() {
           phase = "deep_research";
           break;
         case "review_scope":
+        case "manual_scope":
           phase = "review_scope";
           break;
         case "review_size":
+        case "manual_size":
           phase = "review_size";
           break;
         case "review_type":
+        case "manual_type":
           phase = "review_type";
           break;
         default:
@@ -158,7 +177,16 @@ export default function AssessmentPage() {
     return {
       phase,
       companyName: selectedCompany?.name || researchResult?.company_name,
-      companyUrl: selectedCompany?.url,
+      companyUrl: selectedCompany?.top_domain,
+      visibleUi: {
+        app: {
+          currentPhase,
+          researchStep,
+          isManualEntry,
+          completedPhases,
+        },
+        ...(visibleUiStep || {}),
+      },
       researchData:
         Object.keys(researchData).length > 0 ? researchData : undefined,
       classificationData,
@@ -171,6 +199,9 @@ export default function AssessmentPage() {
     researchResult,
     confirmedAnswers,
     complianceReport,
+    completedPhases,
+    isManualEntry,
+    visibleUiStep,
   ]);
 
   // Build company profile from confirmed answers
@@ -242,10 +273,13 @@ export default function AssessmentPage() {
   const currentReviewSection = useMemo((): ResearchSection | null => {
     switch (researchStep) {
       case "review_scope":
+      case "manual_scope":
         return "GEOGRAPHICAL SCOPE";
       case "review_size":
+      case "manual_size":
         return "COMPANY SIZE";
       case "review_type":
+      case "manual_type":
         return "TYPE OF SERVICE PROVIDED";
       default:
         return null;
@@ -256,33 +290,53 @@ export default function AssessmentPage() {
   const currentReviewStep = useMemo(() => {
     switch (researchStep) {
       case "review_scope":
+      case "manual_scope":
         return 1;
       case "review_size":
+      case "manual_size":
         return 2;
       case "review_type":
+      case "manual_type":
         return 3;
       default:
         return 0;
     }
   }, [researchStep]);
 
-  const handleCompanySelected = (company: CompanyMatch) => {
+  // Current manual section index (0-based)
+  const currentManualSectionIndex = useMemo(() => {
+    switch (researchStep) {
+      case "manual_scope":
+        return 0;
+      case "manual_size":
+        return 1;
+      case "manual_type":
+        return 2;
+      default:
+        return -1;
+    }
+  }, [researchStep]);
+
+  const handleCompanySelected = useCallback((company: CompanyMatch) => {
     setSelectedCompany(company);
-  };
+  }, []);
 
-  const handleStartResearch = (companyName: string) => {
+  const handleStartResearch = useCallback((_companyName: string) => {
     setResearchStep("deep_research");
-  };
+  }, []);
 
-  const handleResearchComplete = (result: CompanyResearchResult) => {
-    setResearchResult(result);
-    setResearchStep("review_scope");
-  };
+  const handleResearchComplete = useCallback(
+    (result: CompanyResearchResult) => {
+      setResearchResult(result);
+      setResearchStep("review_scope");
+    },
+    []
+  );
 
-  const handleResearchError = (errorMsg: string) => {
+  const handleResearchError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setResearchStep("error");
-  };
+  }, []);
 
   const handleConfirmSection = (
     section: ResearchSection,
@@ -290,30 +344,57 @@ export default function AssessmentPage() {
   ) => {
     setConfirmedAnswers((prev) => ({ ...prev, [section]: answers }));
 
-    // Move to next step
-    switch (section) {
-      case "GEOGRAPHICAL SCOPE":
-        setResearchStep("review_size");
-        break;
-      case "COMPANY SIZE":
-        setResearchStep("review_type");
-        break;
-      case "TYPE OF SERVICE PROVIDED":
-        setResearchStep("complete");
-        setCompletedPhases(["research"]);
-        setCurrentPhase("classify");
-        break;
+    // Move to next step - different paths for manual vs research flow
+    if (isManualEntry) {
+      switch (section) {
+        case "GEOGRAPHICAL SCOPE":
+          setResearchStep("manual_size");
+          break;
+        case "COMPANY SIZE":
+          setResearchStep("manual_type");
+          break;
+        case "TYPE OF SERVICE PROVIDED":
+          setResearchStep("complete");
+          setCompletedPhases(["research"]);
+          setCurrentPhase("classify");
+          break;
+      }
+    } else {
+      switch (section) {
+        case "GEOGRAPHICAL SCOPE":
+          setResearchStep("review_size");
+          break;
+        case "COMPANY SIZE":
+          setResearchStep("review_type");
+          break;
+        case "TYPE OF SERVICE PROVIDED":
+          setResearchStep("complete");
+          setCompletedPhases(["research"]);
+          setCurrentPhase("classify");
+          break;
+      }
     }
   };
 
   const handleBack = () => {
-    switch (researchStep) {
-      case "review_size":
-        setResearchStep("review_scope");
-        break;
-      case "review_type":
-        setResearchStep("review_size");
-        break;
+    if (isManualEntry) {
+      switch (researchStep) {
+        case "manual_size":
+          setResearchStep("manual_scope");
+          break;
+        case "manual_type":
+          setResearchStep("manual_size");
+          break;
+      }
+    } else {
+      switch (researchStep) {
+        case "review_size":
+          setResearchStep("review_scope");
+          break;
+        case "review_type":
+          setResearchStep("review_size");
+          break;
+      }
     }
   };
 
@@ -326,6 +407,33 @@ export default function AssessmentPage() {
     setCurrentPhase("research");
     setCompletedPhases([]);
     setComplianceReport(null);
+    setIsManualEntry(false);
+  };
+
+  const handleManualEntry = (companyName: string, country: string) => {
+    // Create a minimal company match for manual entry
+    const manualCompany: CompanyMatch = {
+      name: companyName || "Unknown Company",
+      top_domain: "",
+      confidence: "low",
+      summary_short: `Manual entry for ${companyName || "company"} in ${
+        country || "unspecified location"
+      }`,
+      summary_long: "",
+    };
+    setSelectedCompany(manualCompany);
+
+    // Create empty research result for manual filling
+    const emptyResult: CompanyResearchResult = {
+      company_name: companyName || "Unknown Company",
+      generated_at: new Date().toISOString(),
+      answers: [],
+    };
+    setResearchResult(emptyResult);
+
+    // Set manual entry mode and go to manual entry flow
+    setIsManualEntry(true);
+    setResearchStep("manual_scope");
   };
 
   const handleClassificationComplete = (report: ComplianceReport) => {
@@ -351,6 +459,36 @@ export default function AssessmentPage() {
     setComplianceReport(null);
   };
 
+  const handleAskCorinna = useCallback((finding: SubQuestionAnswer) => {
+    // Format a helpful question about this finding
+    const question = `Help me understand this research finding:\n\nQuestion: ${finding.question}\n\nAnswer: ${finding.answer}\n\nSource: ${finding.source}\nConfidence: ${finding.confidence}\n\nWhat does this question mean and why is it relevant for DSA compliance? I need to decide if this answer is correct.`;
+    setContextMode("review_findings");
+    setCorinnaQuestion(question);
+  }, []);
+
+  const handleAskCorinnaObligation = useCallback(
+    (obligation: ObligationAnalysis) => {
+      // Format a helpful question about this obligation
+      const question = `Help me understand this DSA obligation:\n\nArticle: ${
+        obligation.article
+      }\nTitle: ${obligation.title}\n\nApplies to my service: ${
+        obligation.applies ? "Yes" : "No"
+      }\n\nImplications: ${
+        obligation.implications
+      }\n\nWhat does this article require and why does it ${
+        obligation.applies ? "apply" : "not apply"
+      } to my service?`;
+      setContextMode("obligations");
+      setCorinnaQuestion(question);
+    },
+    []
+  );
+
+  const handleCorinnaQuestionSent = useCallback(() => {
+    setCorinnaQuestion("");
+    setContextMode("general");
+  }, []);
+
   // Phase indicator text
   const phaseText = useMemo(() => {
     if (currentPhase === "classify") {
@@ -368,6 +506,10 @@ export default function AssessmentPage() {
       case "review_size":
       case "review_type":
         return "Review Findings";
+      case "manual_scope":
+      case "manual_size":
+      case "manual_type":
+        return "Manual Data Entry";
       case "complete":
         return "Research Complete";
       default:
@@ -377,26 +519,26 @@ export default function AssessmentPage() {
 
   return (
     <motion.main
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0, filter: "blur(8px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)" }}
+      transition={{ duration: 0.625, ease: [0.4, 0, 0.2, 1] }}
       className="h-screen bg-[#fafaf9] flex flex-col overflow-hidden"
     >
       {/* Header */}
       <header className="shrink-0 bg-[#fafaf9]/80 backdrop-blur-lg border-b border-[#e7e5e4]">
-        <div className="px-6 h-14 flex items-center">
-          <Link href="/" className="flex items-center">
-            <span className="font-serif text-lg text-[#0a0a0a]">Corinna</span>
+        <div className="px-4 md:px-6 py-3 md:py-0 md:h-14 flex flex-col md:flex-row items-center gap-3 md:gap-0">
+          <Link href="/" className="flex items-center md:mr-auto">
+            <span className="font-serif text-3xl text-[#0a0a0a]">Corinna</span>
           </Link>
 
-          <div className="flex-1 flex justify-center">
+          <div className="w-full md:w-auto md:flex-1 md:flex md:justify-center">
             <ProgressStepper
               currentPhase={currentPhase}
               completedPhases={completedPhases}
             />
           </div>
 
-          <div className="w-32" />
+          <div className="hidden md:block md:w-32" />
         </div>
       </header>
 
@@ -452,6 +594,8 @@ export default function AssessmentPage() {
                       <CompanyMatcher
                         onCompanySelected={handleCompanySelected}
                         onStartResearch={handleStartResearch}
+                        onManualEntry={handleManualEntry}
+                        onVisibleStateChange={setVisibleUiStep}
                       />
                     </motion.div>
                   )}
@@ -465,13 +609,16 @@ export default function AssessmentPage() {
                     >
                       <DeepResearch
                         companyName={selectedCompany.name}
+                        topDomain={selectedCompany.top_domain}
+                        summaryLong={selectedCompany.summary_long}
                         onComplete={handleResearchComplete}
                         onError={handleResearchError}
+                        onVisibleStateChange={setVisibleUiStep}
                       />
                     </motion.div>
                   )}
 
-                  {currentReviewSection && researchResult && (
+                  {currentReviewSection && researchResult && !isManualEntry && (
                     <motion.div
                       key={`review_${currentReviewSection}`}
                       initial={{ opacity: 0, y: 20 }}
@@ -486,13 +633,39 @@ export default function AssessmentPage() {
                         }
                         currentStep={currentReviewStep}
                         totalSteps={3}
+                        isPreviouslyConfirmed={
+                          !!confirmedAnswers[currentReviewSection]
+                        }
                         onConfirm={(answers) =>
                           handleConfirmSection(currentReviewSection, answers)
                         }
                         onBack={handleBack}
+                        onVisibleStateChange={setVisibleUiStep}
+                        onAskCorinna={handleAskCorinna}
                       />
                     </motion.div>
                   )}
+
+                  {isManualEntry &&
+                    currentManualSectionIndex >= 0 &&
+                    selectedCompany && (
+                      <motion.div
+                        key={`manual_${currentManualSectionIndex}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                      >
+                        <ManualDataEntry
+                          companyName={selectedCompany.name}
+                          currentSectionIndex={currentManualSectionIndex}
+                          onComplete={(section, answers) =>
+                            handleConfirmSection(section, answers)
+                          }
+                          onBack={handleBack}
+                          onVisibleStateChange={setVisibleUiStep}
+                        />
+                      </motion.div>
+                    )}
 
                   {researchStep === "error" && (
                     <motion.div
@@ -545,6 +718,7 @@ export default function AssessmentPage() {
                         companyProfile={companyProfile}
                         onComplete={handleClassificationComplete}
                         onError={handleClassificationError}
+                        onVisibleStateChange={setVisibleUiStep}
                       />
                     </div>
                   ) : (
@@ -552,6 +726,7 @@ export default function AssessmentPage() {
                       companyProfile={companyProfile}
                       onComplete={handleClassificationComplete}
                       onError={handleClassificationError}
+                      onVisibleStateChange={setVisibleUiStep}
                     />
                   )}
                 </motion.div>
@@ -570,6 +745,8 @@ export default function AssessmentPage() {
                     report={complianceReport}
                     companyProfile={companyProfile}
                     onBack={handleBackFromDashboard}
+                    onVisibleStateChange={setVisibleUiStep}
+                    onAskCorinna={handleAskCorinnaObligation}
                   />
                 </motion.div>
               )}
@@ -579,7 +756,12 @@ export default function AssessmentPage() {
       </div>
 
       {/* Floating Chat Popup */}
-      <ChatPopup context={chatContext} />
+      <ChatPopup
+        context={chatContext}
+        initialQuestion={corinnaQuestion}
+        onInitialQuestionSent={handleCorinnaQuestionSent}
+        contextMode={contextMode}
+      />
     </motion.main>
   );
 }

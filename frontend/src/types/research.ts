@@ -6,6 +6,11 @@ export interface SubQuestionAnswer {
   section: string;
   question: string;
   answer: string;
+  /**
+   * Explicit flag for when no relevant public information was found.
+   * Optional for backward compatibility with older responses.
+   */
+  information_found?: boolean;
   source: string;
   confidence: "High" | "Medium" | "Low";
   raw_research?: string;
@@ -29,7 +34,7 @@ export const RESEARCH_SECTIONS: ResearchSection[] = [
 ];
 
 export const SECTION_LABELS: Record<ResearchSection, string> = {
-  "GEOGRAPHICAL SCOPE": "Geographical Scope",
+  "GEOGRAPHICAL SCOPE": "Territorial scope",
   "COMPANY SIZE": "Company Size",
   "TYPE OF SERVICE PROVIDED": "Service Type",
 };

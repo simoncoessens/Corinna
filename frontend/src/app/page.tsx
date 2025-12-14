@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, Search, Scale, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 
@@ -12,143 +12,179 @@ export default function HomePage() {
 
   const handleBegin = () => {
     setIsTransitioning(true);
+    // Navigate after the fade-out completes
     setTimeout(() => {
       router.push("/assessment");
-    }, 600);
+    }, 625);
   };
 
   return (
-    <main className="relative h-screen flex flex-col overflow-hidden">
+    <motion.main
+      initial={{ opacity: 1, filter: "blur(0px)" }}
+      animate={{
+        opacity: isTransitioning ? 0 : 1,
+        filter: isTransitioning ? "blur(8px)" : "blur(0px)",
+      }}
+      transition={{
+        duration: 0.625,
+        ease: [0.4, 0, 0.2, 1],
+      }}
+      className="relative h-screen flex flex-col overflow-hidden"
+    >
+      {/* Background */}
+      <div className="absolute inset-0 z-0">
+        <motion.div
+          initial={{ scale: 1.05, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0"
+        >
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: "url('/background.png')" }}
+          />
+          <div className="absolute inset-0 bg-[#fafaf9]/85" />
+        </motion.div>
+      </div>
+
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center relative">
-        {/* Background */}
-        <div className="absolute inset-0 z-0">
-          <motion.div
-            initial={{ scale: 1.05, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0"
-          >
-            <div
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: "url('/background.png')" }}
-            />
-            <div className="absolute inset-0 bg-[#fafaf9]/85" />
-          </motion.div>
-        </div>
-
-        {/* Transition Overlay */}
-        <AnimatePresence>
-          {isTransitioning && (
-            <motion.div
-              initial={{ scaleY: 0 }}
-              animate={{ scaleY: 1 }}
-              exit={{ scaleY: 0 }}
-              transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1] }}
-              className="fixed inset-0 z-50 bg-[#0a0a0a] origin-bottom"
-            />
-          )}
-        </AnimatePresence>
-
         {/* Content */}
-        <AnimatePresence>
-          {!isTransitioning && (
-            <div className="relative z-10 w-full max-w-2xl mx-auto px-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-col items-center text-center"
-              >
-                {/* Title */}
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                  className="font-serif text-6xl sm:text-7xl text-[#0a0a0a] mb-8"
-                >
-                  Corinna
-                </motion.h1>
+        <div className="relative z-10 w-full max-w-2xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col items-center text-center"
+          >
+            {/* Title */}
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="font-serif leading-none text-7xl sm:text-7xl md:text-8xl lg:text-9xl text-[#0a0a0a] mb-4"
+            >
+              Corinna
+            </motion.h1>
 
-                {/* Description */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.3 }}
-                  className="space-y-4 mb-12 max-w-lg"
-                >
-                  <p className="font-sans text-[#57534e] leading-relaxed">
-                    Determine your obligations under the EU Digital Services
-                    Act.
-                  </p>
-                  <p className="font-sans text-sm text-[#78716c] leading-relaxed">
-                    Provide your company name. The tool researches public
-                    information, classifies your service type, and identifies
-                    which DSA articles apply to your organization.
-                  </p>
-                </motion.div>
+            {/* Subtitle */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="font-sans italic text-base sm:text-lg md:text-xl text-[#57534e] tracking-wide mb-12"
+            >
+              Your shortcut through the DSA.
+            </motion.p>
 
-                {/* Steps */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.4 }}
-                  className="w-full grid grid-cols-3 gap-4 mb-12"
-                >
-                  {[
-                    { step: "1", label: "Research" },
-                    { step: "2", label: "Classify" },
-                    { step: "3", label: "Report" },
-                  ].map((item, i) => (
+            {/* Description */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="mb-12 max-w-xl"
+            >
+              <p className="font-sans text-sm sm:text-base text-[#57534e] leading-relaxed">
+                Type your company name and let Corinna do the rest. It scans
+                public information, identifies your digital service type, and
+                delivers a tailored obligations report. Turn weeks of legal
+                research into just a few clicks.
+              </p>
+            </motion.div>
+
+            {/* Steps */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+              className="w-full flex justify-center mb-12 px-4"
+            >
+              <div className="inline-flex items-center gap-3 sm:gap-5 mx-auto whitespace-nowrap">
+                {[
+                  { step: "1", label: "Research", icon: Search },
+                  { step: "2", label: "Classify", icon: Scale },
+                  { step: "3", label: "Report", icon: FileText },
+                ].map((item, i, arr) => (
+                  <div key={item.step} className="flex items-center">
                     <motion.div
-                      key={item.step}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.5 + i * 0.1 }}
-                      className="flex flex-col items-center gap-2"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.5, delay: 0.6 + i * 0.15 }}
+                      className="flex flex-col items-center gap-2 sm:gap-3 px-2 sm:px-5 text-center"
                     >
-                      <span className="font-mono text-xs text-[#a8a29e]">
-                        {item.step}
-                      </span>
-                      <span className="font-sans text-sm text-[#0a0a0a]">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#0a0a0a]/5 flex items-center justify-center">
+                        <item.icon
+                          className="w-4 h-4 sm:w-5 sm:h-5 text-[#0a0a0a]"
+                          strokeWidth={1.5}
+                        />
+                      </div>
+                      <span className="font-sans text-xs sm:text-sm text-[#0a0a0a] tracking-wide">
                         {item.label}
                       </span>
                     </motion.div>
-                  ))}
-                </motion.div>
+                    {i < arr.length - 1 && (
+                      <motion.div
+                        initial={{ opacity: 0, scaleX: 0 }}
+                        animate={{ opacity: 1, scaleX: 1 }}
+                        transition={{
+                          duration: 0.4,
+                          delay: 0.7 + i * 0.15,
+                        }}
+                        className="w-8 sm:w-14 h-px bg-[#d6d3d1] origin-left"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
 
-                {/* CTA */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.6, delay: 0.7 }}
-                >
-                  <Button
-                    onClick={handleBegin}
-                    size="lg"
-                    variant="primary"
-                    className="group"
-                  >
-                    Begin
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </motion.div>
-
-                {/* Footer note */}
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, delay: 0.9 }}
-                  className="mt-12 font-mono text-[10px] text-[#a8a29e] uppercase tracking-wider"
-                >
-                  Regulation (EU) 2022/2065
-                </motion.p>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+            {/* CTA */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+            >
+              <Button
+                onClick={handleBegin}
+                size="lg"
+                variant="primary"
+                className="group"
+                disabled={isTransitioning}
+              >
+                Begin Assessment
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </main>
+
+      {/* Disclaimer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 1.0 }}
+        className="hidden md:block absolute bottom-0 left-0 right-0 z-10 w-full px-6 pb-4"
+      >
+        <div className="font-sans text-xs text-[#78716c] leading-relaxed max-w-4xl mx-auto text-center space-y-2">
+          <p>
+            Corinna is an automated tool and can make mistakes. All outputs are
+            for informational purposes only and do not constitute legal advice.
+          </p>
+          <p>
+            This project is part of{" "}
+            <a
+              href="https://www.antoniodavola.com/snip/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-[#57534e] transition-colors"
+            >
+              SNIP – Self-assessment Network Impact Program
+            </a>{" "}
+            (PRIN-PNRR 2023).
+          </p>
+        </div>
+      </motion.div>
+    </motion.main>
   );
 }

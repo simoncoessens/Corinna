@@ -34,3 +34,12 @@ backend/agents/company_researcher/.langgraph_api/.langgraph_checkpoint*.pckl
 backend/agents/company_researcher/.langgraph_api/.langgraph_ops.pckl
 backend/agents/company_researcher/.langgraph_api/.langgraph_retry_counter.pckl
 backend/agents/company_researcher/.langgraph_api/store*.pckl
+
+# LangGraph local runtime artifacts (all agents)
+backend/agents/**/.langgraph_api/
+
+# Packaging/build artifacts
+**/*.egg-info/
+build/
+dist/
+.pytest_cache/
