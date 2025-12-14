@@ -317,7 +317,7 @@ export function ResearchReview({
                           onChange={(e) => setEditValue(e.target.value)}
                           className={cn(
                             "w-full p-3 border border-[#0a0a0a] bg-white",
-                            "font-sans text-sm text-[#0a0a0a]",
+                            "font-sans text-base text-[#0a0a0a]",
                             "focus:outline-none resize-none",
                             "min-h-[100px]"
                           )}

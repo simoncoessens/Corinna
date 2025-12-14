@@ -30,6 +30,13 @@ export default function HomePage() {
         ease: [0.4, 0, 0.2, 1],
       }}
       className="relative h-screen flex flex-col overflow-hidden"
+      style={{
+        // Add safe area padding for devices with notches and home indicators
+        paddingTop: "max(0px, env(safe-area-inset-top, 0px))",
+        paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px))",
+        paddingLeft: "max(0px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(0px, env(safe-area-inset-right, 0px))",
+      }}
     >
       {/* Background */}
       <div className="absolute inset-0 z-0">

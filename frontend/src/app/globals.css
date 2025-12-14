@@ -109,6 +109,9 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  /* Support safe area insets for devices with notches */
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 
+          env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 body {
@@ -119,6 +122,21 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Ensure body respects safe areas on iOS devices with notches */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Prevent auto-zoom on input focus on iOS (requires 16px font size minimum) */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea,
+select {
+  font-size: 16px;
 }
 
 /* =============================================================================

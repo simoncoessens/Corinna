@@ -420,7 +420,7 @@ export function CompanyMatcher({
                   className={cn(
                     "w-full h-12 pl-11 pr-4",
                     "bg-white border border-[#e7e5e4]",
-                    "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+                    "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                     "focus:outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10",
                     "transition-all duration-200"
                   )}
@@ -449,7 +449,7 @@ export function CompanyMatcher({
                   className={cn(
                     "w-full h-12 pl-11 pr-4",
                     "bg-white border border-[#e7e5e4]",
-                    "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+                    "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                     "focus:outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10",
                     "transition-all duration-200"
                   )}

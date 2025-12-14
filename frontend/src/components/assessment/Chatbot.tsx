@@ -274,7 +274,7 @@ export function Chatbot({ context }: ChatbotProps) {
             className={cn(
               "flex-1 h-10 px-3",
               "bg-[#fafaf9] border border-[#e7e5e4]",
-              "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+              "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
               "focus:outline-none focus:border-[#0a0a0a]",
               "transition-colors duration-200",
               "disabled:opacity-50"

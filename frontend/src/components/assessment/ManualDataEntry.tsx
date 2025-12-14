@@ -371,7 +371,7 @@ export function ManualDataEntry({
                     placeholder={question.placeholder}
                     className={cn(
                       "w-full p-3 border border-[#e7e5e4] bg-white",
-                      "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+                      "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                       "focus:outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10",
                       "resize-none min-h-[80px]",
                       "transition-all duration-200"

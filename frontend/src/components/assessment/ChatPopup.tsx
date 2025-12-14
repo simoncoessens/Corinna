@@ -1127,7 +1127,11 @@ export function ChatPopup({
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
             onClick={() => setIsOpen(true)}
             className={cn(
-              "fixed bottom-6 right-6 z-50",
+              "fixed z-50",
+              // Desktop positioning
+              "sm:bottom-6 sm:right-6",
+              // Mobile: safer margins to avoid notches and edges
+              "max-sm:bottom-8 max-sm:right-6",
               "w-12 h-12",
               "bg-[#0a0a0a] text-white",
               "flex items-center justify-center",
@@ -1181,17 +1185,31 @@ export function ChatPopup({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className={cn(
-              "fixed bottom-6 right-6 z-50",
-              "w-[380px] h-[520px]",
+              "fixed z-50",
+              // Desktop positioning
+              "sm:bottom-6 sm:right-6 sm:w-[380px] sm:h-[520px]",
+              // Mobile: full screen with safe margins
+              "max-sm:left-4 max-sm:right-4 max-sm:bottom-4 max-sm:w-auto max-sm:h-auto",
               "bg-white shadow-2xl",
               "border border-[#e7e5e4]",
-              "flex flex-col overflow-hidden",
-              // Mobile: full screen with padding
-              "max-sm:inset-3 max-sm:w-auto max-sm:h-auto max-sm:bottom-3 max-sm:right-3"
+              "flex flex-col overflow-hidden"
             )}
+            style={{
+              // Mobile: Dynamically adjust top position based on safe area inset
+              // This ensures the chat window starts below the notch on iPhone X+ devices
+              // Falls back to 1rem if safe area is not available
+              top: "max(1rem, env(safe-area-inset-top, 1rem))",
+            }}
           >
-            {/* Header */}
-            <div className="shrink-0 px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+            {/* Header - With notch-specific safe area handling */}
+            <div
+              className="shrink-0 px-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between sm:py-3 max-sm:pb-3"
+              style={{
+                // On mobile devices with notch (iPhone X+), add safe area padding at top
+                // This ensures the Corinna logo and title are never obscured by the notch
+                paddingTop: "max(0.75rem, env(safe-area-inset-top, 0.75rem))",
+              }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-[#0a0a0a] flex items-center justify-center">
                   <MessageCircle className="w-4 h-4 text-white" />
@@ -1351,7 +1369,7 @@ export function ChatPopup({
                   className={cn(
                     "flex-1 h-10 px-3",
                     "bg-white border border-[#e7e5e4]",
-                    "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+                    "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                     "focus:outline-none focus:border-[#0a0a0a]",
                     "transition-colors duration-150",
                     "disabled:opacity-50"

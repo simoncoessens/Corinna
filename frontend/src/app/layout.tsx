@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -22,6 +22,13 @@ const jetBrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
   display: "swap",
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5, // Allow users to zoom for accessibility
+  viewportFit: "cover", // Enable safe area insets for devices with notches
+};
 
 export const metadata: Metadata = {
   title: "Corinna | DSA Compliance Navigator",

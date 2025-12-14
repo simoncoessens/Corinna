@@ -563,7 +563,7 @@ export function AssistantPopup({
                   className={cn(
                     "flex-1 h-10 px-3",
                     "bg-white border border-[#e7e5e4] rounded-lg",
-                    "font-sans text-sm text-[#0a0a0a] placeholder:text-[#a8a29e]",
+                    "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                     "focus:outline-none focus:border-[#0a0a0a] focus:ring-1 focus:ring-[#0a0a0a]",
                     "transition-colors duration-200",
                     "disabled:opacity-50"
