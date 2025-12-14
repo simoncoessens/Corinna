@@ -90,6 +90,17 @@ export function DeepResearch({
   const controllerRef = useRef<AbortController | null>(null);
   const lastCompanyRef = useRef<string | null>(null);
 
+  // Keep callbacks stable so the streaming effect doesn't restart
+  // just because parent re-rendered.
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
   // Keep unique sources by URL
   const dedupeSources = useCallback((list: SearchSource[]) => {
     const seen = new Set<string>();
@@ -345,12 +356,12 @@ export function DeepResearch({
                       event as ResultEvent<CompanyResearchResult>
                     ).data;
                     setPhase("finalizing");
-                    setTimeout(() => onComplete(resultData), 500);
+                    setTimeout(() => onCompleteRef.current(resultData), 500);
                     break;
                   }
                   case "error":
                     if (!completedRef.current) {
-                      onError(event.message);
+                      onErrorRef.current(event.message);
                     }
                     break;
                   case "done":
@@ -368,15 +379,27 @@ export function DeepResearch({
       } catch (err) {
         // Ignore abort errors (happen on unmount / strict mode)
         if (controller.signal.aborted) return;
-        onError(err instanceof Error ? err.message : "Unknown error");
+        onErrorRef.current(
+          err instanceof Error ? err.message : "Unknown error"
+        );
       }
     }
 
-    runResearch();
+    // React StrictMode (dev) intentionally mounts/unmounts components once to
+    // detect unsafe effects. If we start the backend stream immediately, we can
+    // accidentally kick off the full research twice. Deferring one tick lets the
+    // StrictMode "test mount" clean up before we start any network work.
+    const startTimer = window.setTimeout(() => {
+      if (controller.signal.aborted || controllerRef.current !== controller) {
+        return;
+      }
+      runResearch();
+    }, 0);
 
     // Cleanup: abort fetch/stream when leaving the component (prevents
     // background streaming continuing into review screens).
     return () => {
+      window.clearTimeout(startTimer);
       // Only abort if this controller is still the current one
       if (controllerRef.current === controller) {
         controller.abort();
@@ -386,7 +409,7 @@ export function DeepResearch({
         researchStartedRef.current = false;
       }
     };
-  }, [companyName, topDomain, summaryLong, onComplete, onError, queueSources]);
+  }, [companyName, topDomain, summaryLong, queueSources]);
 
   return (
     <div className="w-full max-w-md mx-auto">
