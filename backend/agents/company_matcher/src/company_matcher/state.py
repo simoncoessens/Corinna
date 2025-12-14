@@ -6,7 +6,8 @@ from langgraph.graph import MessagesState
 class CompanyMatcherInputState(MessagesState):
     """Input state - messages containing the company name."""
 
-    pass
+    company_name: str = ""
+    country_of_establishment: str = ""
 
 
 class CompanyMatcherState(MessagesState):

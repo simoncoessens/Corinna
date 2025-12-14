@@ -117,6 +117,8 @@ class CompanyResearcherRequest(BaseModel):
 class ServiceCategorizerRequest(BaseModel):
     """Request for service categorizer."""
     company_profile: Dict[str, Any]  # JSON object with company profile
+    top_domain: Optional[str] = None
+    summary_long: Optional[str] = None
     session_id: Optional[str] = None  # Optional session tracking
 
 
@@ -729,7 +731,9 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
         )
     
     input_state: ServiceCategorizerInputState = {
-        "messages": [HumanMessage(content=json.dumps(request.company_profile))]
+        "messages": [HumanMessage(content=json.dumps(request.company_profile))],
+        "top_domain": (request.top_domain or "").strip() or None,
+        "summary_long": (request.summary_long or "").strip() or None,
     }
     
     def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -817,7 +821,9 @@ async def service_categorizer_invoke(request: ServiceCategorizerRequest):
     
     try:
         input_state: ServiceCategorizerInputState = {
-            "messages": [HumanMessage(content=json.dumps(request.company_profile))]
+            "messages": [HumanMessage(content=json.dumps(request.company_profile))],
+            "top_domain": (request.top_domain or "").strip() or None,
+            "summary_long": (request.summary_long or "").strip() or None,
         }
         result = await service_categorizer.ainvoke(input_state)
         final_report = result.get("final_report", "")

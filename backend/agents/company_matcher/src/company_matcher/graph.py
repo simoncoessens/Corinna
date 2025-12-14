@@ -142,7 +142,10 @@ async def prepare_prompt(
     state: CompanyMatcherState, config: RunnableConfig | None = None
 ) -> dict:
     """Build the formatted prompt so the agent always starts from the same context."""
-    company_name = _extract_company_name(state.get("messages", []))
+    # Prefer direct input fields, fallback to extracting from messages
+    company_name = (state.get("company_name") or "").strip()
+    if not company_name:
+        company_name = _extract_company_name(state.get("messages", []))
     country_of_establishment = (state.get("country_of_establishment") or "").strip()
     prompt = load_prompt(
         "prompt.jinja",

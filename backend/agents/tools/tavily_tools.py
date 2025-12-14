@@ -6,8 +6,6 @@ from typing import List, Optional
 from langchain_core.runnables import RunnableConfig
 from tavily import AsyncTavilyClient
 
-from tools.cache import get_cached, set_cached
-
 
 def get_tavily_api_key(config: Optional[RunnableConfig] = None) -> Optional[str]:
     """Get Tavily API key from environment or config."""
@@ -41,15 +39,12 @@ async def tavily_search_tool(
     
     for query in queries:
         try:
-            # Check cache first
-            response = get_cached(query, max_results)
-            if response is None:
-                response = await client.search(
-                    query,
-                    max_results=max_results,
-                    include_raw_content=False,
-                )
-                set_cached(query, max_results, response)
+            # Perform Tavily search directly
+            response = await client.search(
+                query,
+                max_results=max_results,
+                include_raw_content=False,
+            )
 
             for result in response.get("results", []):
                 url = result.get("url", "")
@@ -59,8 +54,7 @@ async def tavily_search_tool(
                     all_results.append({
                         "title": result.get("title", ""),
                         "url": url,
-                        # Allow richer snippets while still capping size
-                        "content": result.get("content", "")[:3000],
+                        "content": result.get("content", ""),
                     })
         except Exception as e:
             all_results.append({"error": f"Search failed for '{query}': {str(e)[:80]}"})

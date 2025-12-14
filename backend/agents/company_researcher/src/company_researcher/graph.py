@@ -147,20 +147,20 @@ async def research_agent(
             summary_long=state.get("summary_long"),
             max_iterations=cfg.max_research_iterations,
         )
-        # Inject any extra context from the company matcher (if available).
-        top_domain = (state.get("top_domain") or "").strip()
-        summary_long = (state.get("summary_long") or "").strip()
-        context_lines: list[str] = [
-            "## Known company context (from company matching)",
-            f"- Name: {state['company_name']}",
-        ]
-        if top_domain:
-            context_lines.append(f"- Known top domain: {top_domain}")
-        if summary_long:
-            context_lines.append(f"- Matcher summary (long):\n{summary_long}")
-        context_block = "\n".join(context_lines) + "\n\n"
 
-        messages = [HumanMessage(content=context_block + prompt)]
+        messages = [HumanMessage(content=prompt)]
+    
+    # Check if this is the last iteration and warn the model
+    iterations = state.get("iterations", 0)
+    max_iterations = cfg.max_research_iterations
+    if iterations >= max_iterations - 1:
+        # This is the last allowed iteration - warn the model
+        warning_message = (
+            f"\n\n⚠️ CRITICAL: This is your LAST iteration (iteration {iterations + 1} of {max_iterations}). "
+            f"You MUST call finish_research with your final answer now. "
+            f"Do NOT make any more web_search calls. Use the information you have gathered and call finish_research immediately."
+        )
+        messages.append(HumanMessage(content=warning_message))
     
     response = await model_with_tools.ainvoke(messages)
     return {"messages": [response]}
@@ -207,7 +207,7 @@ async def summarize_research(
         
         model_params = {
             "model": model_name,
-            "max_tokens": 500,
+            "max_tokens": cfg.summarization_model_max_tokens,
         }
         if api_key:
             model_params["api_key"] = api_key
@@ -222,7 +222,7 @@ async def summarize_research(
             top_domain=state.get("top_domain"),
             summary_long=state.get("summary_long"),
             question=state["question"],
-            raw_output=raw_output[:400000],
+            raw_output=raw_output,  # Full context - 128k context window available
         )
         
         response = await model.ainvoke([HumanMessage(content=prompt)])
@@ -456,9 +456,10 @@ def should_continue_with_tools(state: QuestionResearchState, config: RunnableCon
         if all(tc.get("name") == "finish_research" for tc in last_message.tool_calls):
             return "summarize"
         # If we've exceeded max iterations, force summarize
+        # (iterations is incremented AFTER tools execute, so this catches when we've gone over)
         if iterations >= max_iterations:
             return "summarize"
-        # Otherwise allow tools
+        # Otherwise allow tools (the warning in research_agent will handle the last iteration case)
         return "tools"
     
     # Default to summarize if we can't determine
@@ -521,7 +522,7 @@ async def summarize_and_format(state: QuestionResearchState, config: RunnableCon
     else:
         base_url = os.getenv("OPENAI_BASE_URL")
     
-    model = ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url, max_tokens=500)
+    model = ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url, max_tokens=cfg.summarization_model_max_tokens)
     
     prompt = load_prompt(
         "summarize.jinja",
@@ -529,7 +530,7 @@ async def summarize_and_format(state: QuestionResearchState, config: RunnableCon
         top_domain=state.get("top_domain"),
         summary_long=state.get("summary_long"),
         question=state["question"],
-        raw_output=raw_output[:400000],
+        raw_output=raw_output,  # Full context - 128k context window available
     )
     
     try:

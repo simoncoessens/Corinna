@@ -29,6 +29,8 @@ import type { ChatContext } from "./ChatPopup";
 
 interface ServiceClassificationProps {
   companyProfile: CompanyProfile;
+  topDomain?: string | null;
+  summaryLong?: string | null;
   onComplete: (report: ComplianceReport) => void;
   onError: (error: string) => void;
   /**
@@ -68,6 +70,8 @@ const stageDescriptions: Record<ClassificationStage, string> = {
 
 export function ServiceClassification({
   companyProfile,
+  topDomain,
+  summaryLong,
   onComplete,
   onError,
   onVisibleStateChange,
@@ -162,6 +166,8 @@ export function ServiceClassification({
 
         const stream = streamCategorizeService({
           company_profile: companyProfile,
+          top_domain: topDomain || null,
+          summary_long: summaryLong || null,
         });
 
         let currentNode = "";

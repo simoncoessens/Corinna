@@ -23,6 +23,7 @@ import type { ChatContext } from "./ChatPopup";
 interface ManualQuestion {
   id: string;
   question: string;
+  subtitle?: string;
   placeholder: string;
   helpText?: string;
 }
@@ -33,68 +34,83 @@ interface SectionData {
 }
 
 // All questions from backend/agents/company_researcher/src/company_researcher/prompts/questions/
-// q00-q06: GEOGRAPHICAL SCOPE
-// q07-q09: COMPANY SIZE
-// q10-q16: TYPE OF SERVICE PROVIDED
+// q00-q07: GEOGRAPHICAL SCOPE (8 questions)
+// q08-q09: COMPANY SIZE (2 questions: employee headcount, turnover/balance sheet combined)
+// q10-q16: TYPE OF SERVICE PROVIDED (7 questions)
 const MANUAL_SECTIONS: SectionData[] = [
   {
     section: "GEOGRAPHICAL SCOPE",
     questions: [
       {
         id: "q00_establishment_country",
-        question: "What is the main establishment country for this company?",
+        question:
+          "In which country is the service provider's main establishment or registered office located?",
         placeholder: "e.g., Germany, France, United States, Ireland...",
         helpText:
-          "The country where the company is legally established or has its headquarters.",
+          "Search the official website, Terms of Service, Legal Imprint, or Privacy Policy to identify the specific entity providing the service and the physical address of their registered head office or main establishment. If multiple entities exist, identify the entity contracting with EU users.",
       },
       {
         id: "q01_eu_user_base",
-        question: "What is the EU user base for this company?",
+        question:
+          "What is the estimated number of 'average monthly active recipients' of the service in the Union?",
         placeholder:
-          "e.g., 5 million monthly active users in the EU, primarily in Germany and France...",
+          "e.g., 45 million average monthly active recipients in the EU...",
         helpText:
-          "Describe the number and distribution of users in EU member states.",
+          "Locate the most recent DSA Transparency Report or Information on average monthly active recipients published by the provider for the European Union. Extract the specific number declared. If no specific report exists, search for recent press releases or investor reports mentioning EU user numbers.",
       },
       {
         id: "q02_language",
         question:
-          "What is the use of a language of a member state for this company?",
+          "Does the service interface or customer support operate in any official languages of EU Member States?",
         placeholder:
-          "e.g., The service is available in German, French, Spanish, Italian...",
-        helpText: "List the EU languages supported by the service or platform.",
+          "e.g., Yes, the interface is available in German, French, Spanish, Italian, Polish...",
+        helpText:
+          "List all the languages in which the user interface and customer support of the service are available. Determine if these include official languages of EU Member States (e.g., German, French, Italian, Polish, Spanish). Check the service website, help/support pages, and language selection options.",
       },
       {
         id: "q03_currency",
         question:
-          "What is the currency generally used in that member state for this company?",
-        placeholder: "e.g., EUR (Euro), supports EUR and local currencies...",
-        helpText: "Describe which currencies the service accepts or displays.",
+          "Does the service enable transactions in Euro (EUR) or other national currencies of EU Member States (e.g., PLN, SEK, HUF)?",
+        placeholder:
+          "e.g., Yes, accepts EUR, PLN (Polish Złoty), SEK (Swedish Krona)...",
+        helpText:
+          "Review the payment policy or initiate a mock checkout to identify which currencies are accepted. Determine if the service accepts payments in Euro (EUR) or other national currencies of EU Member States (e.g., PLN, SEK, CZK, HUF). Check payment pages, checkout processes, pricing pages, and terms of service for currency information.",
       },
       {
         id: "q04_ordering_possibility",
         question:
-          "What is the possibility of ordering products or services from EU member state for this company?",
+          "Is it possible for users located in the Union to successfully order products or fully access the service?",
         placeholder:
-          "e.g., Yes, products can be ordered and shipped to all EU countries...",
+          "e.g., Yes, products can be ordered and shipped to all EU countries, including Germany, France, Italy, Spain...",
         helpText:
-          "Describe if and how EU users can order products or services.",
+          "Check the shipping policy or service availability map to determine if products or services can be ordered for delivery to addresses within the European Union. List specific EU Member States mentioned as supported delivery destinations or service availability areas. Check terms of service, shipping/delivery pages, and service availability information.",
       },
       {
         id: "q05_top_level_domain",
         question:
-          "What is the top level domain used for the service for this company?",
-        placeholder: "e.g., .com, .eu, .de, .fr or country-specific domains...",
+          "Does the service operate under a Union-specific Top-Level Domain (e.g., .eu) or any national Member State domains (e.g., .it, .de, .fr)?",
+        placeholder:
+          "e.g., Yes, uses .eu domain and .de (Germany), .fr (France), .it (Italy)...",
         helpText:
-          "List the domain extensions used by the company's website(s).",
+          "Identify the Top-Level Domains (TLDs) used by the provider for its European operations. Determine if the provider utilizes the .eu domain or national domains of EU Member States (e.g., .de, .fr, .it, .es, .nl). Check the primary domain and search for any additional EU-specific or national domain variations and country-specific websites.",
       },
       {
-        id: "q06_accessibility",
+        id: "q06_app_store",
         question:
-          "What is the accessibility of the main website from the Union for this company?",
+          "Is your mobile app available for download in European Union countries appstores?",
         placeholder:
-          "e.g., The website is fully accessible from all EU countries without restrictions...",
+          "e.g., Yes, available in Apple App Store and Google Play Store for France, Germany, Italy, Spain...",
         helpText:
-          "Describe if the website is accessible from EU member states.",
+          "Search the Apple App Store and Google Play Store listings for the provider/service. Determine if the application is available for download in the national storefronts of major EU Member States (e.g., France, Germany, Italy, Spain, Netherlands). Check for availability in country-specific app stores or EU-specific app store regions.",
+      },
+      {
+        id: "q07_accessibility",
+        question:
+          "Is the service technically accessible from IP addresses within the Union (i.e., is it free of geo-blocking measures)?",
+        placeholder:
+          "e.g., Yes, the service is accessible from EU IP addresses without geo-blocking measures...",
+        helpText:
+          "Verify if the main website of the provider/service is technically accessible from IP addresses located within the European Union, or if it implements geo-blocking measures preventing access from the EU. Check for information about regional restrictions, IP blocking, geographic access limitations, or geo-blocking policies.",
       },
     ],
   },
@@ -102,25 +118,21 @@ const MANUAL_SECTIONS: SectionData[] = [
     section: "COMPANY SIZE",
     questions: [
       {
-        id: "q07_employee_headcount",
-        question: "What is the employee headcount of this company?",
-        placeholder: "e.g., 50 employees, 250 employees, 10,000+ employees...",
+        id: "q08_employee_headcount",
+        question: "How many staff members does the provider employ?",
+        placeholder:
+          "e.g., 45 employees (FTE), 250 employees (consolidated group)...",
         helpText:
-          "The total number of full-time equivalent employees. SME threshold is <250 employees.",
+          "Search the most recent Annual Report, CSR Report, or Non-Financial Statement. Extract the Average number of employees or Full-Time Equivalents (FTE) for the last financial year. Determine if the figure represents the specific entity or the consolidated group. If the entity is a subsidiary (e.g., 'Google Ireland'), search for the headcount of the ultimate parent company. The DSA references Commission Recommendation 2003/361/EC - headcount is the primary filter (if this exceeds 50, financial numbers are irrelevant for SME exemption).",
       },
       {
-        id: "q08_annual_turnover",
-        question: "What is the annual turnover/revenue of this company?",
-        placeholder: "e.g., €2 million, €10 million, €50 million+...",
+        id: "q09_annual_turnover",
+        question:
+          "In your last closed financial year, was your company's annual turnover OR its total balance sheet €10 million or less?",
+        placeholder:
+          "e.g., Yes, turnover was €8 million (or balance sheet was €9 million)...",
         helpText:
-          "The company's annual revenue or turnover in EUR. SME threshold is ≤€50 million.",
-      },
-      {
-        id: "q09_balance_sheet",
-        question: "What is the balance sheet total of this company?",
-        placeholder: "e.g., €2 million, €10 million, €43 million+...",
-        helpText:
-          "The company's annual balance sheet total in EUR. SME threshold is ≤€43 million.",
+          "Locate the most recent Consolidated Financial Statement or Annual Report. Extract two values: 1) Total Revenue (or Turnover) and 2) Total Assets (Balance Sheet Total) for the last closed financial year. Convert non-EUR currencies to EUR using the average exchange rate of that reporting year. Compare both against the €10 million threshold - the company qualifies if EITHER turnover OR balance sheet is €10 million or less. Under the SME Recommendation, an enterprise needs to pass the Headcount test AND (Turnover Test OR Balance Sheet Test). Use consolidated group figures if the entity is not autonomous.",
       },
     ],
   },
@@ -128,63 +140,78 @@ const MANUAL_SECTIONS: SectionData[] = [
     section: "TYPE OF SERVICE PROVIDED",
     questions: [
       {
-        id: "q10_service_type",
+        id: "q10_mere_conduit",
         question:
-          "What type of digital/intermediary service does this company provide?",
-        placeholder:
-          "e.g., Social media platform, online marketplace, cloud hosting, video sharing...",
-        helpText:
-          "Describe the main digital or intermediary service offered by the company.",
-      },
-      {
-        id: "q11_mere_conduit",
-        question: "Does this company operate as a 'mere conduit'?",
+          "Does your service operate as a 'Mere conduit service' under the DSA?",
+        subtitle:
+          "i.e. you strictly transmit data or provide internet access, without modifying or permanently storing the content",
         placeholder:
           "e.g., Yes/No. If yes, describe: transmits data without modification, like an ISP...",
         helpText:
           "A 'mere conduit' transmits information without initiating, selecting receiver, or modifying it (e.g., internet access providers).",
       },
       {
-        id: "q12_caching",
-        question: "Does this company operate as a 'caching service'?",
+        id: "q11_caching",
+        question:
+          "Does your service operate as a 'Caching Service' under the DSA?",
+        subtitle:
+          "i.e., your main function is to automatically store temporary copies of data to speed up its delivery to other users",
         placeholder:
           "e.g., Yes/No. If yes, describe: temporarily stores data for faster access...",
         helpText:
           "A 'caching' service automatically, intermediately, and temporarily stores information for more efficient onward transmission.",
       },
       {
-        id: "q13_search_engine",
-        question: "Does this company operate as a 'search engine'?",
+        id: "q12_search_engine",
+        question:
+          "Does your service operate as an 'Online Search Engine' under the DSA?",
+        subtitle:
+          "i.e., you allow users to input queries to perform searches of the entire web",
         placeholder:
           "e.g., Yes/No. If yes, describe: allows users to search websites based on queries...",
         helpText:
           "An 'online search engine' allows users to search all websites based on a query.",
       },
       {
-        id: "q14_hosting",
-        question: "Does this company operate as a 'hosting service'?",
+        id: "q13_hosting",
+        question:
+          "Does your service operate as a 'Hosting Service' under the DSA?",
+        subtitle:
+          "i.e., you store information provided by users at their request on a more than temporary basis?",
         placeholder:
           "e.g., Yes/No. If yes, describe: stores information provided by users...",
         helpText:
           "A 'hosting' service stores information provided by and at the request of users.",
       },
       {
-        id: "q15_online_platform",
+        id: "q14_online_platform",
         question:
-          "Does this company operate as an 'online platform' (subcategory of hosting service)?",
+          "Does your service operate as an 'Online Platform' under the DSA?",
+        subtitle:
+          "i.e., as a primary feature, does your service allow users to publish content that is visible to an indefinite number of people?",
         placeholder:
           "e.g., Yes/No. If yes, describe: hosts user content and disseminates it to the public...",
         helpText:
           "An 'online platform' hosts and disseminates information to the public at the user's request (e.g., social networks, app stores).",
       },
       {
-        id: "q16_marketplace",
-        question:
-          "Does this company operate as an 'online platform allowing consumers to conclude distance contracts with traders'?",
+        id: "q15_marketplace",
+        question: "Does your service operate as an 'Online Marketplace'?",
+        subtitle:
+          "i.e., you allow third-party sellers to sell products or services directly to consumers on your platform",
         placeholder:
           "e.g., Yes/No. If yes, describe: enables consumers to buy from third-party sellers...",
         helpText:
           "An online marketplace that allows consumers to conclude distance contracts with traders (e.g., Amazon Marketplace, eBay).",
+      },
+      {
+        id: "q16_distance_contracts",
+        question:
+          "Does this company operate as an 'online platform allowing consumers to conclude distance contracts with traders'?",
+        placeholder:
+          "e.g., Yes/No. If yes, describe: allows consumers to conclude distance contracts with traders...",
+        helpText:
+          "An online platform that allows consumers to conclude distance contracts with traders is a specific category under the DSA with additional obligations.",
       },
     ],
   },
@@ -352,15 +379,24 @@ export function ManualDataEntry({
                 )}
               >
                 {/* Question header */}
-                <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-                  <p className="font-sans text-sm font-medium text-[#0a0a0a] flex-1 pr-4">
-                    {question.question}
-                  </p>
-                  {isFilled && (
-                    <div className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center">
-                      <Check className="w-3 h-3 text-[#16a34a]" />
+                <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9]">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 pr-4">
+                      <p className="font-sans text-sm font-medium text-[#0a0a0a]">
+                        {question.question}
+                      </p>
+                      {question.subtitle && (
+                        <p className="font-sans text-xs text-[#78716c] mt-1">
+                          {question.subtitle}
+                        </p>
+                      )}
                     </div>
-                  )}
+                    {isFilled && (
+                      <div className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-[#16a34a]" />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Answer input */}

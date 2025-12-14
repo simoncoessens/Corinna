@@ -21,7 +21,12 @@ _QUESTION_MARKER = "Research question about {{ company_name }}:"
 def _extract_question_from_template(template_text: str, *, template_name: str) -> str:
     """Extract the question line from a question template."""
     text = template_text
-    if _QUESTION_MARKER in text:
+    
+    # Try the new format first: look for "## Research Question" section
+    if "## Research Question" in text:
+        text = text.split("## Research Question", 1)[1]
+    # Fallback to legacy format
+    elif _QUESTION_MARKER in text:
         text = text.split(_QUESTION_MARKER, 1)[1]
 
     for raw_line in text.splitlines():
@@ -41,10 +46,13 @@ def _extract_question_from_template(template_text: str, *, template_name: str) -
 
 
 def _infer_section_from_index(idx: int) -> str:
-    # Keep this logic simple and aligned with the current q00-q16 set.
-    if 0 <= idx <= 6:
+    # Keep this logic simple and aligned with the current q00-q15 set.
+    # q00-q07: GEOGRAPHICAL SCOPE (8 questions)
+    # q08-q09: COMPANY SIZE (2 questions: employee headcount, turnover/balance sheet combined)
+    # q10-q15: TYPE OF SERVICE PROVIDED (6 questions)
+    if 0 <= idx <= 7:
         return "GEOGRAPHICAL SCOPE"
-    if 7 <= idx <= 9:
+    if 8 <= idx <= 9:
         return "COMPANY SIZE"
     if idx >= 10:
         return "TYPE OF SERVICE PROVIDED"

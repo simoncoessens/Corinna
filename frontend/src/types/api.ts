@@ -61,6 +61,8 @@ export interface CompanyResearchResult {
 
 export interface ServiceCategorizerRequest {
   company_profile: CompanyProfile;
+  top_domain?: string | null;
+  summary_long?: string | null;
 }
 
 export interface CompanyProfile {

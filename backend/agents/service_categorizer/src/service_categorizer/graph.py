@@ -101,8 +101,14 @@ async def extract_profile(
     except json.JSONDecodeError:
         profile = {"raw_input": profile_json}
     
+    # Extract top_domain and summary_long from state
+    top_domain = (state.get("top_domain") or "").strip() or None
+    summary_long = (state.get("summary_long") or "").strip() or None
+    
     return {
         "company_profile": profile,
+        "top_domain": top_domain,
+        "summary_long": summary_long,
         "messages": [AIMessage(content=f"Analyzing company profile...")]
     }
 
@@ -112,9 +118,16 @@ async def classify_service(
 ) -> dict:
     """Classify the service under DSA framework."""
     profile = state.get("company_profile", {})
+    top_domain = state.get("top_domain")
+    summary_long = state.get("summary_long")
     model = _get_model(config)
     
-    prompt = load_prompt("classify.jinja", company_profile=json.dumps(profile, indent=2))
+    prompt = load_prompt(
+        "classify.jinja",
+        company_profile=json.dumps(profile, indent=2),
+        top_domain=top_domain,
+        summary_long=summary_long,
+    )
     
     response = await model.ainvoke([HumanMessage(content=prompt)])
     

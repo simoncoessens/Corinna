@@ -759,7 +759,7 @@ export function CompanyMatcher({
                             <ExternalLink className="w-3 h-3 text-[#a8a29e] opacity-0 group-hover/link:opacity-100 transition-opacity" />
                           </a>
                           {getShortSummary(company!) && (
-                            <p className="mt-3 font-sans text-sm text-[#57534e] leading-relaxed line-clamp-3">
+                            <p className="mt-3 font-sans text-sm text-[#57534e] leading-relaxed">
                               {getShortSummary(company!)}
                             </p>
                           )}

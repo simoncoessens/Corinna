@@ -8,12 +8,16 @@ from typing_extensions import TypedDict
 class ServiceCategorizerInputState(TypedDict):
     """Input state - just messages with company profile."""
     messages: Annotated[list[AnyMessage], add_messages]
+    top_domain: str | None  # Optional top domain
+    summary_long: str | None  # Optional long summary
 
 
 class ServiceCategorizerState(TypedDict):
     """Full internal state."""
     messages: Annotated[list[AnyMessage], add_messages]
     company_profile: dict[str, Any]  # The company profile from research
+    top_domain: str | None  # Optional top domain
+    summary_long: str | None  # Optional long summary
     classification: dict[str, Any]   # Result of classification step
     obligations: list[dict]          # List of applicable obligations
     obligation_analyses: list[dict]  # Analysis of each obligation

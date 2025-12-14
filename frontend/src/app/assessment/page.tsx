@@ -741,6 +741,8 @@ export default function AssessmentPage() {
                       </p>
                       <ServiceClassification
                         companyProfile={companyProfile}
+                        topDomain={selectedCompany?.top_domain}
+                        summaryLong={selectedCompany?.summary_long}
                         onComplete={handleClassificationComplete}
                         onError={handleClassificationError}
                         onVisibleStateChange={setVisibleUiStep}
@@ -749,6 +751,8 @@ export default function AssessmentPage() {
                   ) : (
                     <ServiceClassification
                       companyProfile={companyProfile}
+                      topDomain={selectedCompany?.top_domain}
+                      summaryLong={selectedCompany?.summary_long}
                       onComplete={handleClassificationComplete}
                       onError={handleClassificationError}
                       onVisibleStateChange={setVisibleUiStep}
