@@ -15,7 +15,6 @@ import {
   Loader2,
   Scale,
   Users,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { streamCategorizeService } from "@/services/api";
@@ -82,12 +81,11 @@ export function ServiceClassification({
     null
   );
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["territorial", "service", "size"])
+    new Set(["territorial", "service", "size", "summary"])
   );
   const [isProcessing, setIsProcessing] = useState(true);
   const [report, setReport] = useState<ComplianceReport | null>(null);
   const streamRef = useRef<boolean>(false);
-  const textContainerRef = useRef<HTMLDivElement>(null);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -193,11 +191,6 @@ export function ServiceClassification({
               const tokenEvent = event as { content: string };
               fullText += tokenEvent.content;
               setStreamedText(fullText);
-              // Auto-scroll to bottom
-              if (textContainerRef.current) {
-                textContainerRef.current.scrollTop =
-                  textContainerRef.current.scrollHeight;
-              }
               break;
 
             case "result":
@@ -258,36 +251,6 @@ export function ServiceClassification({
         </p>
       </motion.div>
 
-      {/* Streaming Text Display */}
-      {isProcessing && streamedText && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="mb-8"
-        >
-          <div className="bg-[#f5f5f4] border border-[#e7e5e4] overflow-hidden">
-            <div className="px-4 py-2 bg-[#0a0a0a] text-white flex items-center gap-2">
-              <motion.div
-                animate={{ opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <Zap className="w-3.5 h-3.5" />
-              </motion.div>
-              <span className="font-mono text-xs uppercase tracking-wider">
-                Thinking
-              </span>
-            </div>
-            <div
-              ref={textContainerRef}
-              className="p-4 h-32 overflow-y-auto font-mono text-xs text-[#78716c] leading-relaxed"
-            >
-              {streamedText}
-              <span className="inline-block w-1.5 h-3 bg-[#b8860b] ml-0.5 animate-pulse" />
-            </div>
-          </div>
-        </motion.div>
-      )}
-
       {/* Classification Results */}
       <AnimatePresence mode="wait">
         {classification && (
@@ -331,11 +294,38 @@ export function ServiceClassification({
               onToggle={() => toggleSection("service")}
             >
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <StatusBadge
-                    label="Intermediary Service"
+                    label="Mere Conduit"
                     value={
-                      classification.service_classification.is_intermediary
+                      classification.service_classification.service_category ===
+                      "Mere Conduit"
+                    }
+                    highlight={
+                      classification.service_classification.service_category ===
+                      "Mere Conduit"
+                    }
+                  />
+                  <StatusBadge
+                    label="Caching"
+                    value={
+                      classification.service_classification.service_category ===
+                      "Caching"
+                    }
+                    highlight={
+                      classification.service_classification.service_category ===
+                      "Caching"
+                    }
+                  />
+                  <StatusBadge
+                    label="Hosting"
+                    value={
+                      classification.service_classification.service_category ===
+                      "Hosting"
+                    }
+                    highlight={
+                      classification.service_classification.service_category ===
+                      "Hosting"
                     }
                   />
                   <StatusBadge
@@ -415,20 +405,19 @@ export function ServiceClassification({
             </ClassificationCard>
 
             {/* Summary */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-[#0a0a0a] text-white p-6 rounded-lg"
+            <ClassificationCard
+              icon={<Shield className="w-5 h-5" />}
+              title="Classification Summary"
+              subtitle="DSA Compliance Assessment"
+              status={true}
+              statusLabel="Complete"
+              isExpanded={expandedSections.has("summary")}
+              onToggle={() => toggleSection("summary")}
             >
-              <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-4 h-4 text-[#b8860b]" />
-                <h3 className="font-serif text-lg">Classification Summary</h3>
+              <div className="prose prose-sm max-w-none text-[#57534e]">
+                <p className="leading-relaxed">{classification.summary}</p>
               </div>
-              <p className="text-sm text-[#a8a29e] leading-relaxed">
-                {classification.summary}
-              </p>
-            </motion.div>
+            </ClassificationCard>
 
             {/* Continue Button */}
             {!isProcessing && (

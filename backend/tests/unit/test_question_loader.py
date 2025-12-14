@@ -87,8 +87,8 @@ What are the company's services?
         
         subquestions = load_subquestions_from_templates()
         
-        # Should load q00.jinja through q16.jinja (17 questions)
-        assert len(subquestions) == 17
+        # Should load q00.jinja through q15.jinja (16 questions)
+        assert len(subquestions) == 16
         
         # Check first question structure
         first = subquestions[0]

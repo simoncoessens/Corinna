@@ -36,7 +36,7 @@ interface SectionData {
 // All questions from backend/agents/company_researcher/src/company_researcher/prompts/questions/
 // q00-q07: GEOGRAPHICAL SCOPE (8 questions)
 // q08-q09: COMPANY SIZE (2 questions: employee headcount, turnover/balance sheet combined)
-// q10-q16: TYPE OF SERVICE PROVIDED (7 questions)
+// q10-q15: TYPE OF SERVICE PROVIDED (6 questions)
 const MANUAL_SECTIONS: SectionData[] = [
   {
     section: "GEOGRAPHICAL SCOPE",
@@ -52,7 +52,7 @@ const MANUAL_SECTIONS: SectionData[] = [
       {
         id: "q01_eu_user_base",
         question:
-          "What is the estimated number of 'average monthly active recipients' of the service in the Union?",
+          "What is the estimated number of 'average monthly active recipients' of the service in the European Union?",
         placeholder:
           "e.g., 45 million average monthly active recipients in the EU...",
         helpText:
@@ -79,7 +79,7 @@ const MANUAL_SECTIONS: SectionData[] = [
       {
         id: "q04_ordering_possibility",
         question:
-          "Is it possible for users located in the Union to successfully order products or fully access the service?",
+          "Is it possible for users located in the European Union to successfully order products or fully access the service?",
         placeholder:
           "e.g., Yes, products can be ordered and shipped to all EU countries, including Germany, France, Italy, Spain...",
         helpText:
@@ -203,15 +203,6 @@ const MANUAL_SECTIONS: SectionData[] = [
           "e.g., Yes/No. If yes, describe: enables consumers to buy from third-party sellers...",
         helpText:
           "An online marketplace that allows consumers to conclude distance contracts with traders (e.g., Amazon Marketplace, eBay).",
-      },
-      {
-        id: "q16_distance_contracts",
-        question:
-          "Does this company operate as an 'online platform allowing consumers to conclude distance contracts with traders'?",
-        placeholder:
-          "e.g., Yes/No. If yes, describe: allows consumers to conclude distance contracts with traders...",
-        helpText:
-          "An online platform that allows consumers to conclude distance contracts with traders is a specific category under the DSA with additional obligations.",
       },
     ],
   },

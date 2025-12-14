@@ -20,6 +20,31 @@ Extract a clean answer from this research output.
 
 ## Instructions
 
+- The research output shows the reasoning trace. It ends with a conclusion of the research.
+- Extract the key information and format it according to the structure below.
+
+### When to set INFORMATION_FOUND: No
+
+Set INFORMATION_FOUND to "No" ONLY when:
+- The search did not return anything relevant to the question
+- No relevant answers or information were found in the search results
+- The research output indicates that no information could be located
+
+### When to set INFORMATION_FOUND: Yes
+
+Set INFORMATION_FOUND to "Yes" if:
+- The search returned any information that is relevant to the question (even if partial or uncertain)
+- The tool has an idea of the answer, even if not entirely sure
+- Any relevant information was found, regardless of confidence level
+
+### Confidence Levels
+
+- **High**: Clear, specific, and well-sourced information that directly answers the question
+- **Medium**: Relevant information found, but may be incomplete or from less authoritative sources
+- **Low**: Some relevant information found, but uncertain, incomplete, or the answer is inferred rather than explicitly stated
+
+**Important**: If you have any idea of the answer (even if uncertain), set INFORMATION_FOUND to "Yes" and use Low confidence. Only use "No" when absolutely no relevant information was found.
+
 Respond in EXACTLY this format:
 
 INFORMATION_FOUND: [Yes/No]

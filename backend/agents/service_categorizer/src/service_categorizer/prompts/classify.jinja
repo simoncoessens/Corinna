@@ -127,6 +127,45 @@ Article 19 - Exclusion for micro and small enterprises 1. This Section [SECTION 
 Article 29 - Exclusion for micro and small enterprises  
 1. This Section [SECTION 4  Additional provisions applicable to providers of online platforms allowing consumers to conclude distance contracts with traders] shall not apply to providers of online platforms allowing consumers to conclude distance contracts with traders that qualify as micro or small enterprises as defined in Recommendation 2003/361/EC.  This Section shall not apply to providers of online platforms allowing consumers to conclude distance contracts with traders that previously qualified for the status of a micro or small enterprise as defined in Recommendation 2003/361/EC during the 12 months following their loss of that status pursuant to Article 4(2) thereof, except when they are very large online platforms in accordance with Article 33.  2. By derogation from paragraph 1 of this Article, this Section shall apply to providers of online platforms allowing consumers to conclude distance contracts with traders that have been designated as very large online platforms in accordance with Article 33, irrespective of whether they qualify as micro or small enterprises.
 
+## Classification Guidelines
+
+### General Approach
+1. **Start with the primary function**: Identify what the service primarily does, not ancillary features.
+2. **Hierarchical classification**: Determine classification in this order:
+   - First: Is it an intermediary service?
+   - Second: Which category (Mere Conduit, Caching, Hosting or Online Search Engine)? (It can be multiple)
+   - Third: If hosting, does it disseminate to the public (Online Platform)?
+   - Fourth: If online platform, is it an online marketplace?
+
+### Key Distinctions to Look For
+- **Mere Conduit vs Caching**: Mere conduit is transient transmission; caching involves temporary storage for efficiency.
+- **Hosting vs Platform**: Hosting stores information; platforms actively disseminate that information to the public.
+- **Platform vs Infrastructure**: A service that provides backend infrastructure (like cloud storage for a separate application) is hosting, not a platform, unless it also provides the public-facing interface.
+- **Private vs Public**: Services that only allow finite, sender-determined recipients (like private messaging) are not platforms, even if they use hosting.
+
+### Common Patterns
+- **E-commerce sites**: Typically online platforms; if they facilitate third-party sellers, they are marketplaces.
+- **Social media services**: Usually online platforms (public dissemination).
+- **Cloud storage services**: Generally hosting, not platforms, unless they also provide public sharing/public galleries.
+- **SaaS applications**: Often not intermediary services if they provide their own content/services rather than hosting user-provided content for others.
+- **Content management systems**: Usually hosting; may be platforms if they enable public-facing websites where users can publish content.
+
+### Ambiguous Cases - Decision Framework
+1. When information is unclear, err on the side of the more specific classification (e.g., platform over hosting) but document the uncertainty in reasoning.
+2. If a service has multiple features, classify based on the primary revenue-generating or core function.
+3. For hybrid services (e.g., a service that is both infrastructure and platform), classify as the most regulated applicable category, but note the complexity.
+4. Consider the business model: services that primarily monetize through user-generated content dissemination are likely platforms.
+
+### Data Evaluation Priorities
+1. **Primary**: Service description, business model, user base characteristics
+2. **Secondary**: Company size metrics, geographic presence indicators
+3. **Supporting**: Technical architecture details, terms of service references
+
+### Size Designation Guidance
+- **VLOP/VLOSE determination**: Requires actual user metrics. Use available data on monthly active users, but note if data is incomplete. The 45 million threshold is absolute.
+- **SME exemption**: Both criteria must be met (<50 employees AND <€10M turnover). If either metric is unavailable or exceeds the threshold, the exemption does not apply. Consider the grace period (12 months after losing SME status) if applicable.
+- **Data availability**: If precise metrics are unavailable, indicate uncertainty but provide best-effort assessment based on available indicators (company size, funding, market presence, competitors).
+
 ## Instructions
 Analyze the company profile and classify the service. Use chain-of-thought reasoning.
 
@@ -147,7 +186,8 @@ Respond with valid JSON only:
   },
   "size_designation": {
     "is_vlop_vlose": true/false,
-    "qualifies_for_sme_exemption": true/false
+    "qualifies_for_sme_exemption": true/false,
+    "reasoning": "..."
   },
   "summary": "One paragraph legal summary of classification."
 }
