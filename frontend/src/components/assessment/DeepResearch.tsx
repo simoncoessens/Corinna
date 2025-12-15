@@ -477,7 +477,7 @@ export function DeepResearch({
 
           {/* Sources list */}
           {/* Fixed height to avoid vertical growth as sources accumulate */}
-          <div className="h-[216px] overflow-hidden">
+          <div className="h-[216px] overflow-hidden no-scrollbar">
             <AnimatePresence mode="popLayout" initial={false}>
               {visibleSources.length === 0 ? (
                 <motion.div
@@ -485,7 +485,7 @@ export function DeepResearch({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="h-[216px] flex flex-col items-center justify-center"
+                  className="h-[216px] flex flex-col items-center justify-center overflow-hidden"
                 >
                   <motion.div
                     className="flex gap-1.5 mb-3"
@@ -505,7 +505,7 @@ export function DeepResearch({
                   </span>
                 </motion.div>
               ) : (
-                <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4]">
+                <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
                   {visibleSources.map((source) => (
                     <motion.div
                       key={source.url}

@@ -485,7 +485,7 @@ export function CompanyMatcher({
           </motion.div>
         )}
 
-        {/* Searching State */}
+        {/* Searching State - styled like DeepResearch */}
         {state === "searching" && (
           <motion.div
             key="searching"
@@ -495,150 +495,143 @@ export function CompanyMatcher({
             transition={{ duration: 0.4 }}
             className="flex flex-col items-center"
           >
-            {/* Simple Search Icon */}
-            <div className="w-16 h-16 bg-gradient-to-br from-[#f5f5f4] to-[#e7e5e4] border border-[#e7e5e4] flex items-center justify-center shadow-sm mb-8">
+            {/* Animated header icon (matching DeepResearch style) */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="relative w-20 h-20 mb-8"
+            >
+              {/* Pulsing rings */}
               <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <Search className="w-7 h-7 text-[#57534e]" />
-              </motion.div>
-            </div>
-
-            <h2 className="font-serif text-2xl text-[#0a0a0a] mb-1">
-              Searching
-              <LoadingDots />
-            </h2>
-            <p className="font-sans text-sm text-[#78716c] mb-6 text-center">
-              Finding information about{" "}
-              <span className="font-medium text-[#0a0a0a]">
-                &quot;{companyName}&quot;
-              </span>
-            </p>
-
-            {/* Sources Card */}
-            <div className="w-full border border-[#e7e5e4] bg-white overflow-hidden shadow-sm">
-              {/* Header */}
-              <div className="px-4 py-3 border-b border-[#e7e5e4] bg-gradient-to-r from-[#fafaf9] to-white flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-[#0a0a0a] animate-pulse" />
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-[#57534e]">
-                    Live Sources
-                  </span>
+                className="absolute inset-0 border border-[#e7e5e4] rounded-full"
+                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              <motion.div
+                className="absolute inset-0 border border-[#e7e5e4] rounded-full"
+                animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.3,
+                }}
+              />
+              {/* Center icon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 bg-[#0a0a0a] flex items-center justify-center">
+                  <Search className="w-6 h-6 text-white" />
                 </div>
-                <span className="font-mono text-[11px] text-[#78716c]">
-                  {isSearching ? "Fetching..." : "Processing..."}
+              </div>
+            </motion.div>
+
+            <h2 className="font-serif text-2xl text-[#0a0a0a] mb-2">
+              Searching organization
+            </h2>
+            <p className="font-sans text-sm text-[#78716c] mb-2">
+              {companyName}
+            </p>
+            <motion.p
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="font-sans text-xs text-[#a8a29e] mb-8"
+            >
+              Gathering information from the web
+            </motion.p>
+
+            {/* Sources card - mirrored from DeepResearch */}
+            <div className="w-full border border-[#e7e5e4] bg-white">
+              {/* Sources header */}
+              <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
+                  Sources analyzed
                 </span>
-              </div>
-
-              {/* Indeterminate progress bar */}
-              <div className="h-1 bg-[#e7e5e4] overflow-hidden">
-                <motion.div
-                  className="h-full bg-[#0a0a0a]"
-                  style={{ width: "35%" }}
-                  animate={{ x: ["-120%", "320%"] }}
-                  transition={{
-                    duration: 1.4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                />
-              </div>
-
-              {/* Sources List - Fixed height container */}
-              <div className="h-[180px] relative overflow-hidden">
-                <AnimatePresence mode="sync" initial={false}>
-                  {visibleSources.map((source) => (
-                    <motion.div
-                      key={source.url}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.25, ease: "easeOut" }}
-                      className="px-4 flex items-center gap-3 border-b border-[#f5f5f4] last:border-b-0"
-                      style={{ height: 60 }}
-                    >
-                      <motion.div
-                        initial={{ scale: 0, rotate: -180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{
-                          delay: 0.1,
-                          type: "spring",
-                          stiffness: 200,
-                        }}
-                        className="w-8 h-8 bg-gradient-to-br from-[#f5f5f4] to-[#e7e5e4] flex items-center justify-center shrink-0"
-                      >
-                        <Globe className="w-4 h-4 text-[#78716c]" />
-                      </motion.div>
-                      <div className="flex-1 min-w-0">
-                        {source.title && (
-                          <p className="font-sans text-sm text-[#0a0a0a] truncate leading-tight">
-                            {source.title}
-                          </p>
-                        )}
-                        <p className="font-mono text-[11px] text-[#a8a29e] truncate mt-0.5">
-                          {extractDomain(source.url)}
-                        </p>
-                      </div>
-                      <motion.div
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.2, type: "spring" }}
-                        className="w-6 h-6 bg-[#dcfce7] flex items-center justify-center shrink-0"
-                      >
-                        <Check className="w-3 h-3 text-[#16a34a]" />
-                      </motion.div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-
-                {/* Empty state / Initial Loading */}
-                {visibleSources.length === 0 && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="flex gap-2 mb-4 h-6 items-end">
-                      {[0, 1, 2, 3, 4].map((i) => (
-                        <motion.div
-                          key={i}
-                          className="w-1 bg-[#0a0a0a]/60"
-                          initial={{ height: 8 }}
-                          animate={{
-                            height: [8, 24, 8],
-                          }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            delay: i * 0.1,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="font-mono text-[11px] text-[#a8a29e] uppercase tracking-wider">
-                      Initializing search
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="px-4 py-3 border-t border-[#e7e5e4] bg-gradient-to-r from-[#fafaf9] to-white flex items-center justify-between">
-                <span className="font-mono text-[11px] text-[#57534e]">
+                <span className="font-mono text-sm font-medium text-[#0a0a0a] tabular-nums">
                   {sourceCountCapped
                     ? `${MAX_TOTAL_SOURCES}+`
-                    : totalSourceCount}{" "}
-                  source
-                  {sourceCountCapped || totalSourceCount !== 1 ? "s" : ""}{" "}
-                  analyzed
+                    : totalSourceCount}
                 </span>
-                <motion.div
-                  className="flex gap-1"
-                  animate={{ opacity: [0.4, 1, 0.4] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <div className="w-1.5 h-1.5 bg-[#0a0a0a]" />
-                  <div className="w-1.5 h-1.5 bg-[#0a0a0a]/60" />
-                  <div className="w-1.5 h-1.5 bg-[#0a0a0a]/30" />
-                </motion.div>
+              </div>
+
+              {/* Sources list */}
+              {/* Fixed height tuned for max 3 sources (3 x 50px) */}
+              <div className="h-[150px] overflow-hidden no-scrollbar">
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {visibleSources.length === 0 ? (
+                    <motion.div
+                      key="loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="h-[150px] flex flex-col items-center justify-center overflow-hidden"
+                    >
+                      <motion.div
+                        className="flex gap-1.5 mb-3"
+                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        transition={{
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <div className="w-1.5 h-1.5 bg-[#0a0a0a]" />
+                        <div className="w-1.5 h-1.5 bg-[#78716c]" />
+                        <div className="w-1.5 h-1.5 bg-[#a8a29e]" />
+                      </motion.div>
+                      <span className="font-mono text-[11px] text-[#a8a29e]">
+                        Searching for sources...
+                      </span>
+                    </motion.div>
+                  ) : (
+                    <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
+                      {visibleSources.map((source) => (
+                        <motion.div
+                          key={source.url}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{
+                            duration: 0.4,
+                            ease: [0.25, 0.1, 0.25, 1],
+                            layout: { duration: 0.3 },
+                          }}
+                          className="px-5 py-3 flex items-center gap-3"
+                        >
+                          <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+                            <Globe className="w-3 h-3 text-[#78716c]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {source.title && (
+                              <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5">
+                                {source.title}
+                              </p>
+                            )}
+                            <p className="font-mono text-[11px] text-[#78716c] truncate">
+                              {extractDomain(source.url)}
+                            </p>
+                          </div>
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{
+                              delay: 0.2,
+                              duration: 0.2,
+                              ease: "backOut",
+                            }}
+                            className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center shrink-0"
+                          >
+                            <Check className="w-3 h-3 text-[#16a34a]" />
+                          </motion.div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
