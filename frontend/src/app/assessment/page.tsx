@@ -335,7 +335,11 @@ export default function AssessmentPage() {
   );
 
   const handleResearchError = useCallback((errorMsg: string) => {
-    setError(errorMsg);
+    setError(
+      typeof errorMsg === "string" && errorMsg.trim()
+        ? errorMsg
+        : "An unexpected error occurred during research."
+    );
     setResearchStep("error");
   }, []);
 

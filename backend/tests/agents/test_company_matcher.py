@@ -213,3 +213,4 @@ class TestCompanyMatcherGraph:
         assert "agent" in _builder.nodes
         assert "tools" in _builder.nodes
         assert "finalize" in _builder.nodes
+

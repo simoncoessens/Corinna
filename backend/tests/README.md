@@ -207,3 +207,4 @@ pytest --cov=agents --cov-fail-under=70
 - **Coverage**: ~77% on agents module
 - **Test Categories**: 4 (unit, tools, agents, api)
 - **Fixtures**: 36 shared fixtures
+

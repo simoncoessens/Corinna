@@ -204,3 +204,4 @@ class TestCompanyResearcherGraph:
         from company_researcher.graph import research_subgraph
         
         assert research_subgraph is not None
+

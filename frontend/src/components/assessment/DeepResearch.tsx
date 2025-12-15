@@ -289,7 +289,13 @@ export function DeepResearch({
         );
 
         if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
+          const bodyText = await response.text().catch(() => "");
+          const detail = bodyText ? bodyText.slice(0, 500) : "";
+          throw new Error(
+            detail
+              ? `API Error: ${response.status} - ${detail}`
+              : `API Error: ${response.status}`
+          );
         }
 
         if (!response.body) {
@@ -361,11 +367,21 @@ export function DeepResearch({
                   }
                   case "error":
                     if (!completedRef.current) {
-                      onErrorRef.current(event.message);
+                      const message = (event as { message?: unknown }).message;
+                      onErrorRef.current(
+                        typeof message === "string" && message.trim()
+                          ? message
+                          : "Unknown error"
+                      );
                     }
                     break;
                   case "done":
                     // End the stream loop immediately.
+                    if (!completedRef.current) {
+                      onErrorRef.current(
+                        "Research completed but no result was returned."
+                      );
+                    }
                     return;
                 }
               } catch {

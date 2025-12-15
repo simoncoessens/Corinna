@@ -322,3 +322,4 @@ class TestServiceCategorizerModels:
         
         assert parsed["company_name"] == "TestCorp"
         assert parsed["classification"]["is_in_scope"] is True
+

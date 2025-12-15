@@ -155,3 +155,4 @@ class TestRedisCache:
         from tools.cache import CACHE_TTL
         
         assert CACHE_TTL == 6 * 60 * 60  # 6 hours in seconds
+

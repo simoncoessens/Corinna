@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -15,6 +16,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
+
+# Logger (uvicorn will pick this up)
+logger = logging.getLogger("dsa_copilot.api")
 
 # Load environment variables from root .env file (project-wide config)
 root_path = Path(__file__).resolve().parent.parent.parent
@@ -285,6 +289,8 @@ async def stream_agent_events(
             yield f"data: {json.dumps(done_data)}\n\n"
         
     except Exception as e:
+        # Make sure we log server-side errors even if the client only sees a generic UI error.
+        logger.exception("Streaming error while running agent events")
         error_msg = str(e)[:500]
         error_data = {
             'type': 'error',
@@ -346,6 +352,7 @@ async def stream_with_final_result(
                 }
                 yield f"data: {json.dumps(result_data)}\n\n"
         except Exception as e:
+            logger.exception("Failed to extract/emit final result for stream")
             exception_data = {
                 'type': 'error',
                 'message': str(e)[:500],
@@ -364,12 +371,14 @@ async def stream_with_final_result(
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     # Initialize database
+    global DB_AVAILABLE, tracker
     if DB_AVAILABLE:
         try:
             from database.connection import DATABASE_URL, engine
+            from sqlalchemy import text
             # Test connection
             with engine.connect() as conn:
-                conn.execute("SELECT 1")
+                conn.execute(text("SELECT 1"))
             
             # Log which database is being used
             if DATABASE_URL.startswith("postgresql://"):
@@ -388,6 +397,9 @@ async def lifespan(app: FastAPI):
             print(f"✗ Database initialization failed: {e}")
             import traceback
             traceback.print_exc()
+            # Disable tracking for this process to avoid silent failures later on.
+            DB_AVAILABLE = False
+            tracker = None
     
     print("✓ DSA Copilot API ready")
     print(f"  - Company Matcher: {'✓' if company_matcher else '✗'}")
@@ -637,18 +649,30 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         if final_report:
             try:
                 parsed = json.loads(final_report)
-                # Update session with research results
+                # Update session with research results (best-effort; never break the response)
                 if session_id and DB_AVAILABLE and tracker:
-                    tracker.update_session(
-                        session_id,
-                        status=SessionStatus.RESEARCH_COMPLETE,
-                    )
-                    if step_id:
-                        tracker.complete_step(step_id, parsed)
+                    try:
+                        tracker.update_session(
+                            session_id,
+                            status=SessionStatus.RESEARCH_COMPLETE,
+                        )
+                        if step_id:
+                            tracker.complete_step(step_id, parsed)
+                    except Exception:
+                        logger.exception(
+                            "Session tracking failed while saving research result"
+                        )
                 return parsed
             except json.JSONDecodeError:
                 if step_id and tracker:
-                    tracker.complete_step(step_id, error_message="Failed to parse result")
+                    try:
+                        tracker.complete_step(
+                            step_id, error_message="Failed to parse result"
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Session tracking failed while saving parse error"
+                        )
                 return None
         return None
     
@@ -682,6 +706,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                 yield chunk
         except Exception as e:
             error_occurred = str(e)
+            logger.exception("Error while streaming company research")
             raise
         finally:
             # Update DB once at the end (not during streaming)

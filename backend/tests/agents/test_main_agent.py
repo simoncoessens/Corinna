@@ -130,3 +130,4 @@ class TestMainAgentCredentials:
             
             assert api_key == "config-key"
             assert base_url == "http://config-url"
+
