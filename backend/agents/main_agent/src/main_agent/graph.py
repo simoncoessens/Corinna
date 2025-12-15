@@ -67,9 +67,9 @@ async def agent(state: MainAgentState, config: RunnableConfig | None = None) -> 
     api_key, base_url = _get_api_credentials(config)
     
     # Build model params, only including non-None values
+    model_name = cfg.main_model.replace("openai:", "") if cfg.main_model.startswith("openai:") else cfg.main_model
     model_params = {
-        "model": "deepseek-chat",
-        "max_tokens": cfg.max_tokens,
+        "model": model_name,
     }
     if api_key:
         model_params["api_key"] = api_key
@@ -94,7 +94,6 @@ async def agent(state: MainAgentState, config: RunnableConfig | None = None) -> 
     
     system_msg = SystemMessage(content=system_prompt)
     messages = [system_msg] + list(state.get("messages", []))
-    
     response = await model_with_tools.ainvoke(messages, config=config)
     
     return {"messages": [response]}

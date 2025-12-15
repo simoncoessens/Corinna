@@ -125,7 +125,6 @@ async def research_agent(
     
     model_params = {
         "model": model_name,
-        "max_tokens": cfg.research_model_max_tokens,
     }
     if api_key:
         model_params["api_key"] = api_key
@@ -207,7 +206,6 @@ async def summarize_research(
         
         model_params = {
             "model": model_name,
-            "max_tokens": cfg.summarization_model_max_tokens,
         }
         if api_key:
             model_params["api_key"] = api_key
@@ -225,6 +223,8 @@ async def summarize_research(
             raw_output=raw_output,  # Full context - 128k context window available
         )
         
+        # summarization has no tool calls, but keep helper consistent in case
+        # upstream message lists include assistant tool-call messages.
         response = await model.ainvoke([HumanMessage(content=prompt)])
         response_text = str(response.content)
         
@@ -522,7 +522,7 @@ async def summarize_and_format(state: QuestionResearchState, config: RunnableCon
     else:
         base_url = os.getenv("OPENAI_BASE_URL")
     
-    model = ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url, max_tokens=cfg.summarization_model_max_tokens)
+    model = ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url)
     
     prompt = load_prompt(
         "summarize.jinja",

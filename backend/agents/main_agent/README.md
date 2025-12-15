@@ -39,7 +39,6 @@ async for event in main_agent.astream_events({
 | Variable         | Default                |
 | ---------------- | ---------------------- |
 | `MAIN_MODEL`     | `openai:deepseek-chat` |
-| `MAX_TOKENS`     | `4000`                 |
 | `MAX_ITERATIONS` | `10`                   |
 
 ## LangGraph Studio

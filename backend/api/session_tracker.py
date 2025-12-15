@@ -149,9 +149,9 @@ class SessionTracker:
             
             # Estimate cost (rough estimates)
             # DeepSeek: ~$0.0001 per 1K tokens (very rough)
-            # Tavily: ~$0.01 per search
+            # Tavily: $0.008 per search
             token_cost = total_tokens * 0.0001 / 1000
-            search_cost = total_search * 0.01
+            search_cost = total_search * 0.008
             session.estimated_cost_usd = token_cost + search_cost
             
             db.commit()

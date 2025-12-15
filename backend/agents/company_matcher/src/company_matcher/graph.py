@@ -174,7 +174,6 @@ async def run_agent(
         model="deepseek-chat",
         api_key=api_key,
         base_url=base_url,
-        max_tokens=2000,
     ).bind_tools(TOOLS)
 
     response = await model.ainvoke(state["messages"], config=config)

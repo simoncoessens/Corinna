@@ -15,11 +15,6 @@ class Configuration(BaseModel):
         default="openai:deepseek-chat",
         metadata={"description": "Primary model for reasoning and responses"}
     )
-    max_tokens: int = Field(
-        default=4000,
-        metadata={"description": "Max output tokens"}
-    )
-    
     # ReAct agent settings
     max_iterations: int = Field(
         default=10,

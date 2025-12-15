@@ -55,13 +55,13 @@ Then open the LangGraph Studio UI and:
 
 You can override defaults via environment variables or LangGraph UI:
 
-| Setting                   | Default                | Description              |
-| ------------------------- | ---------------------- | ------------------------ |
-| `research_model`          | `openai:deepseek-chat` | Model for research       |
-| `summarization_model`     | `openai:deepseek-chat` | Model for summarization  |
-| `max_search_results`      | `10`                   | Results per search query |
-| `max_search_queries`      | `1`                    | Queries per tool call    |
-| `max_concurrent_research` | `17`                   | Parallel research tasks  |
+| Setting                   | Default                    | Description                                       |
+| ------------------------- | -------------------------- | ------------------------------------------------- |
+| `research_model`          | `openai:deepseek-chat`     | Model for research                                |
+| `summarization_model`     | `openai:deepseek-reasoner` | Model for summarizing research results (no tools) |
+| `max_search_results`      | `10`                       | Results per search query                          |
+| `max_search_queries`      | `1`                        | Queries per tool call                             |
+| `max_concurrent_research` | `17`                       | Parallel research tasks                           |
 
 ## Output Format
 

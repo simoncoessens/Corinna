@@ -15,9 +15,8 @@ class TestCompanyResearcherConfiguration:
         config = Configuration()
         
         assert config.research_model == "openai:deepseek-chat"
-        assert config.research_model_max_tokens == 4000
-        assert config.summarization_model == "openai:deepseek-chat"
-        assert config.max_research_iterations == 1
+        assert config.summarization_model == "openai:deepseek-reasoner"
+        assert config.max_research_iterations == 4
         assert config.max_search_results == 10
         assert config.max_search_queries == 1
         assert config.max_content_length == 15000
@@ -88,8 +87,8 @@ class TestMainAgentConfiguration:
         
         config = Configuration()
         
-        # Should have max_tokens attribute
-        assert hasattr(config, "max_tokens")
+        # No max_tokens cap is enforced
+        assert not hasattr(config, "max_tokens")
 
     def test_main_agent_configuration_from_runnable_config(self):
         """Test main_agent Configuration.from_runnable_config."""

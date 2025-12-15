@@ -102,10 +102,9 @@ def _get_model(config: RunnableConfig | None = None) -> ChatOpenAI:
         base_url = os.getenv("OPENAI_BASE_URL")
     
     return ChatOpenAI(
-        model="deepseek-chat",
+        model="deepseek-reasoner",
         api_key=api_key,
         base_url=base_url,
-        max_tokens=2000,
     )
 
 

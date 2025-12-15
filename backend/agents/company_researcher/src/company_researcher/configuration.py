@@ -17,20 +17,10 @@ class Configuration(BaseModel):
             "description": "Model for conducting research (via OpenAI-compatible API)"
         }
     )
-    research_model_max_tokens: int = Field(
-        default=4000,
-        metadata={"description": "Max output tokens for research model"}
-    )
-    
     summarization_model: str = Field(
-        default="openai:deepseek-chat",
+        default="openai:deepseek-reasoner",
         metadata={"description": "Model for summarizing research results"}
     )
-    summarization_model_max_tokens: int = Field(
-        default=2000,
-        metadata={"description": "Max output tokens for summarization"}
-    )
-
     # Research agent settings
     max_research_iterations: int = Field(
         default=4,
