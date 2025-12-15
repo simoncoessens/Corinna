@@ -1,18 +1,18 @@
 """Admin API endpoints for session monitoring and analytics."""
 
-import os
 import io
+import os
+import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import desc, func
-import secrets
+from sqlalchemy.orm import Session as DBSession
 
-from database import get_db, Session, SessionStep, ChatMessage
-from database.models import SessionStatus, StepType
+from database import ChatMessage, Session, SessionStep, get_db
+from database.models import SessionStatus
 
 # =============================================================================
 # Authentication
@@ -20,9 +20,10 @@ from database.models import SessionStatus, StepType
 
 security = HTTPBasic()
 
-# Admin credentials from environment
+# Admin credentials from environment. Defaults are intentionally generic and
+# should be overridden in all non-local environments.
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "corinna-admin-2024")  # Change in production!
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-me")
 
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -387,7 +388,67 @@ def export_session_pdf(
     story.append(Spacer(1, 20))
     
     # Classification Result
-    if session.service_category:
+    # Prefer the full classification object from the stored compliance_report (service categorizer output)
+    report = session.compliance_report or {}
+    classification = report.get("classification")
+    if classification:
+        story.append(Paragraph("Classification Result", heading_style))
+
+        territorial = classification.get("territorial_scope", {})
+        svc = classification.get("service_classification", {})
+        size = classification.get("size_designation", {})
+
+        classification_data = [
+            ["Service Category", svc.get("service_category", session.service_category or "Unknown")],
+            ["In Scope (DSA)", "Yes" if territorial.get("is_in_scope", session.is_in_scope) else "No"],
+            ["Intermediary Service", "Yes" if svc.get("is_intermediary", False) else "No"],
+            ["Online Platform", "Yes" if svc.get("is_online_platform", False) else "No"],
+            ["Online Marketplace", "Yes" if svc.get("is_marketplace", False) else "No"],
+            ["Search Engine", "Yes" if svc.get("is_search_engine", False) else "No"],
+            [
+                "VLOP/VLOSE",
+                "Yes" if size.get("is_vlop_vlose", session.is_vlop) else "No",
+            ],
+            [
+                "SME Exemption",
+                "Eligible" if size.get("qualifies_for_sme_exemption", False) else "Not eligible",
+            ],
+            [
+                "Applicable Obligations",
+                f"{session.applicable_obligations_count or 0} of {session.total_obligations_count or 0}",
+            ],
+        ]
+        t = Table(classification_data, colWidths=[150, 300])
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 10))
+
+        # Include detailed reasoning and classification summary from the service categorizer
+        territorial_reasoning = territorial.get("reasoning")
+        platform_reasoning = svc.get("platform_reasoning")
+        classification_summary = classification.get("summary")
+
+        if territorial_reasoning:
+            story.append(Paragraph("<b>Territorial Scope Reasoning</b>", body_style))
+            story.append(Paragraph(territorial_reasoning, body_style))
+            story.append(Spacer(1, 8))
+
+        if platform_reasoning:
+            story.append(Paragraph("<b>Platform Qualification Reasoning</b>", body_style))
+            story.append(Paragraph(platform_reasoning, body_style))
+            story.append(Spacer(1, 8))
+
+        if classification_summary:
+            story.append(Paragraph("<b>Classification Summary</b>", body_style))
+            story.append(Paragraph(classification_summary, body_style))
+            story.append(Spacer(1, 20))
+    elif session.service_category:
+        # Fallback for legacy sessions that only have coarse fields stored
         story.append(Paragraph("Classification Result", heading_style))
         classification_data = [
             ["Service Category", session.service_category],
@@ -418,14 +479,31 @@ def export_session_pdf(
                         story.append(Paragraph(f"  {a}", body_style))
             story.append(Spacer(1, 10))
     
-    # Compliance Report
+    # Compliance Report (full service categorizer output)
     if session.compliance_report:
         story.append(PageBreak())
-        story.append(Paragraph("Compliance Obligations", heading_style))
-        
+        story.append(Paragraph("Compliance Report", heading_style))
+
         report = session.compliance_report
-        obligations = report.get("obligations", [])
-        
+
+        # Executive summary from the service categorizer
+        summary_text = report.get("summary")
+        if summary_text:
+            story.append(Paragraph("<b>Executive Summary</b>", body_style))
+            # Preserve basic paragraph structure
+            for para in str(summary_text).split("\n"):
+                para = para.strip()
+                if para:
+                    story.append(Paragraph(para, body_style))
+                    story.append(Spacer(1, 4))
+            story.append(Spacer(1, 12))
+
+        # Obligations – include all obligations and full text, matching the UI
+        obligations = report.get("obligations") or report.get("obligation_analyses") or []
+
+        if obligations:
+            story.append(Paragraph("Compliance Obligations", heading_style))
+
         for obl in obligations:
             applies = obl.get("applies", False)
             status_text = "✓ Applies" if applies else "○ Does not apply"
@@ -433,15 +511,17 @@ def export_session_pdf(
                 f"<b>Article {obl.get('article', '?')}: {obl.get('title', 'Unknown')}</b> - {status_text}",
                 body_style
             ))
-            if applies:
-                implications = obl.get("implications", "")
-                if implications:
-                    story.append(Paragraph(f"<i>{implications[:300]}...</i>" if len(implications) > 300 else f"<i>{implications}</i>", body_style))
-                action_items = obl.get("action_items", [])
-                if action_items:
-                    story.append(Paragraph("Action items:", body_style))
-                    for item in action_items[:5]:
-                        story.append(Paragraph(f"  • {item}", body_style))
+            implications = obl.get("implications", "")
+            if implications:
+                # Do not truncate – include the full implications text from the service categorizer
+                story.append(Paragraph(f"<i>{implications}</i>", body_style))
+
+            action_items = obl.get("action_items", [])
+            if action_items:
+                story.append(Paragraph("Action items:", body_style))
+                for item in action_items:
+                    story.append(Paragraph(f"  • {item}", body_style))
+
             story.append(Spacer(1, 10))
     
     # Build PDF
