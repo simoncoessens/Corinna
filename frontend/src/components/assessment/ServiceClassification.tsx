@@ -67,6 +67,33 @@ const stageDescriptions: Record<ClassificationStage, string> = {
   complete: "Your DSA compliance classification is ready for review",
 };
 
+const stageArticles: Record<
+  ClassificationStage,
+  {
+    label: string;
+    articles: string;
+  } | null
+> = {
+  starting: null,
+  extracting: {
+    label: "Company profile & key DSA definitions",
+    articles: "Art. 2, 3 DSA",
+  },
+  classifying: {
+    label: "Service category, intermediary role, and territorial scope",
+    articles: "Art. 2, 3–6 DSA",
+  },
+  analyzing: {
+    label: "Core obligations and due‑diligence duties for your service",
+    articles: "Art. 8–24, 26–28 DSA",
+  },
+  generating: {
+    label: "Summarizing applicable obligations and risk areas",
+    articles: "Key DSA articles identified above",
+  },
+  complete: null,
+};
+
 export function ServiceClassification({
   companyProfile,
   topDomain,
@@ -249,6 +276,21 @@ export function ServiceClassification({
         <p className="text-center text-sm text-[#78716c] max-w-lg mx-auto">
           {stageDescriptions[stage]}
         </p>
+        {stageArticles[stage] && (
+          <div className="mt-4 text-center text-xs text-[#57534e] max-w-xl mx-auto">
+            <div className="inline-flex flex-col gap-1 items-center">
+              <span className="font-mono uppercase tracking-wider text-[#a16207]">
+                Currently focusing on
+              </span>
+              <p className="leading-relaxed">
+                {stageArticles[stage]?.label}{" "}
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#fef3c7] text-[11px] font-mono text-[#854d0e]">
+                  {stageArticles[stage]?.articles}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Classification Results */}
