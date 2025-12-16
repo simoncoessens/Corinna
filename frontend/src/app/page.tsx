@@ -84,9 +84,9 @@ export default function HomePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="font-sans italic text-base sm:text-lg md:text-xl text-[#57534e] tracking-wide mb-12"
+              className="font-sans italic text-sm sm:text-base md:text-lg text-[#57534e] tracking-wide mb-12"
             >
-              Your shortcut through the DSA.
+              Conversational Risk Navigator for DSA Normative Assessment
             </motion.p>
 
             {/* Description */}
@@ -99,8 +99,7 @@ export default function HomePage() {
               <p className="font-sans text-sm sm:text-base text-[#57534e] leading-relaxed">
                 Type your company name and let Corinna do the rest. It scans
                 public information, identifies your digital service type, and
-                delivers a tailored obligations report. Turn weeks of legal
-                research into just a few clicks.
+                delivers a tailored obligations report.
               </p>
             </motion.div>
 
@@ -176,7 +175,7 @@ export default function HomePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 1.0 }}
-        className="hidden md:block absolute bottom-0 left-0 right-0 z-10 w-full px-6 pb-4"
+        className="block absolute bottom-0 left-0 right-0 z-10 w-full px-6 pb-4"
       >
         <div className="font-sans text-xs text-[#78716c] leading-relaxed max-w-4xl mx-auto text-center space-y-2">
           <p>
