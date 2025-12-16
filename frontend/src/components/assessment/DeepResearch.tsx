@@ -35,6 +35,15 @@ const API_BASE_URL =
     : process.env.NEXT_PUBLIC_API_URL ||
       "https://snip-tool-backend.onrender.com";
 
+const RESEARCH_PERSISTENCE_KEY = "corinna_deep_research_state";
+
+interface PersistedResearchState {
+  companyName: string;
+  displayedSources: SearchSource[];
+  totalSourceCount: number;
+  phase: "research" | "summarization" | "finalizing";
+}
+
 function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace("www.", "");
@@ -89,6 +98,60 @@ export function DeepResearch({
   const researchStartedRef = useRef(false);
   const controllerRef = useRef<AbortController | null>(null);
   const lastCompanyRef = useRef<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const seenUrlsRef = useRef<Set<string>>(new Set());
+
+  // Hydrate state from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setHasHydrated(true);
+      return;
+    }
+    const raw = sessionStorage.getItem(RESEARCH_PERSISTENCE_KEY);
+    if (!raw) {
+      setHasHydrated(true);
+      return;
+    }
+    try {
+      const data = JSON.parse(raw) as PersistedResearchState;
+      // Only restore if it's for the same company
+      if (data.companyName === companyName) {
+        if (data.displayedSources) {
+          setDisplayedSources(data.displayedSources);
+          displayedSourcesRef.current = data.displayedSources;
+          seenUrlsRef.current = new Set(
+            data.displayedSources.map((s) => s.url)
+          );
+        }
+        if (typeof data.totalSourceCount === "number") {
+          setTotalSourceCount(data.totalSourceCount);
+        }
+        if (data.phase) {
+          setPhase(data.phase);
+        }
+      }
+    } catch (e) {
+      console.warn("[DeepResearch] Failed to restore state", e);
+    } finally {
+      setHasHydrated(true);
+    }
+  }, [companyName]);
+
+  // Persist state whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasHydrated) return;
+    try {
+      const payload: PersistedResearchState = {
+        companyName,
+        displayedSources,
+        totalSourceCount,
+        phase,
+      };
+      sessionStorage.setItem(RESEARCH_PERSISTENCE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }, [hasHydrated, companyName, displayedSources, totalSourceCount, phase]);
 
   // Keep callbacks stable so the streaming effect doesn't restart
   // just because parent re-rendered.
@@ -136,6 +199,8 @@ export function DeepResearch({
           const updated = [...prev, nextSource];
           return dedupeSources(updated);
         });
+        seenUrlsRef.current.add(nextSource.url);
+        setTotalSourceCount(seenUrlsRef.current.size);
       }
 
       // Schedule next source with delay
@@ -152,13 +217,15 @@ export function DeepResearch({
       const existingUrls = new Set([
         ...sourceQueueRef.current.map((s) => s.url),
         ...displayedSourcesRef.current.map((s) => s.url),
+        ...Array.from(seenUrlsRef.current.values()),
       ]);
 
       const uniqueNew = newSources.filter((s) => !existingUrls.has(s.url));
 
       if (uniqueNew.length > 0) {
         sourceQueueRef.current.push(...uniqueNew);
-        setTotalSourceCount((prev) => prev + uniqueNew.length);
+        uniqueNew.forEach((s) => seenUrlsRef.current.add(s.url));
+        setTotalSourceCount(seenUrlsRef.current.size);
         processQueue();
       }
     },
@@ -330,6 +397,10 @@ export function DeepResearch({
                       toolEndEvent.sources.length > 0
                     ) {
                       queueSources(toolEndEvent.sources);
+                      toolEndEvent.sources.forEach((s) =>
+                        seenUrlsRef.current.add(s.url)
+                      );
+                      setTotalSourceCount(seenUrlsRef.current.size);
                       if (toolEndEvent.name === "web_search") {
                         searchCountRef.current++;
                       }
@@ -362,6 +433,10 @@ export function DeepResearch({
                       event as ResultEvent<CompanyResearchResult>
                     ).data;
                     setPhase("finalizing");
+                    // Clear persisted state since research is complete
+                    if (typeof window !== "undefined") {
+                      sessionStorage.removeItem(RESEARCH_PERSISTENCE_KEY);
+                    }
                     setTimeout(() => onCompleteRef.current(resultData), 500);
                     break;
                   }

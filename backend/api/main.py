@@ -1,6 +1,7 @@
 """Unified FastAPI app for all DSA Copilot agents with streaming support."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -16,6 +17,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
+
+# Reconnectable streaming hub (does not depend on DB)
+from api.stream_hub import stream_hub, StreamJob
 
 # Logger (uvicorn will pick this up)
 logger = logging.getLogger("dsa_copilot.api")
@@ -456,7 +460,7 @@ def health():
 
 @app.post("/agents/company_matcher/stream")
 async def company_matcher_stream(request: CompanyMatcherRequest):
-    """Stream company matching results."""
+    """Stream company matching results. Supports reconnection via session_id."""
     if not company_matcher:
         raise HTTPException(status_code=503, detail="Company matcher not available")
     
@@ -468,62 +472,135 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
             status_code=400, detail="Country of establishment is required"
         )
     
-    # Session tracking
     session_id = request.session_id
-    step_id = None
-    if session_id and DB_AVAILABLE and tracker:
-        tracker.get_or_create_session(
-            session_id,
-            company_name=request.company_name.strip(),
-            country=request.country_of_establishment.strip(),
-        )
-        step_id = tracker.start_step(
-            session_id,
-            StepType.COMPANY_MATCHER,
-            {"company_name": request.company_name, "country": request.country_of_establishment},
-        )
     
     input_state: CompanyMatcherInputState = {
         "messages": [HumanMessage(content=request.company_name.strip())],
         "country_of_establishment": request.country_of_establishment.strip(),
     }
     
-    def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        match_result = result.get("match_result", "")
-        if match_result:
-            try:
-                parsed = json.loads(match_result)
-                # Update session with matched company info
-                if session_id and DB_AVAILABLE and tracker:
-                    exact = parsed.get("exact_match")
-                    if exact:
-                        tracker.update_session(
-                            session_id,
-                            company_name=exact.get("name"),
-                            company_domain=exact.get("top_domain"),
-                            status=SessionStatus.COMPANY_MATCHED,
-                        )
-                    if step_id:
-                        tracker.complete_step(step_id, parsed)
-                return parsed
-            except json.JSONDecodeError:
-                if step_id and tracker:
-                    tracker.complete_step(step_id, error_message="Failed to parse result")
+    # If we have a session_id, use reconnectable streaming via the hub
+    if session_id:
+        # Build a stable key for this matching job
+        job_key = f"matcher:{session_id}:{request.company_name.strip().lower()}:{request.country_of_establishment.strip().lower()}"
+        
+        async def run_job(job: StreamJob) -> None:
+            """Run the company matcher and buffer events in the job."""
+            step_id: Optional[str] = None
+            llm_calls = 0
+            search_calls = 0
+            sources_collected: List[Dict] = []
+            error_occurred: Optional[str] = None
+
+            if DB_AVAILABLE and tracker:
+                # Ensure session exists and record that we're matching
+                tracker.get_or_create_session(
+                    session_id,
+                    company_name=request.company_name.strip(),
+                    country=request.country_of_establishment.strip(),
+                )
+                step_id = tracker.start_step(
+                    session_id,
+                    StepType.COMPANY_MATCHER,
+                    {
+                        "company_name": request.company_name,
+                        "country": request.country_of_establishment,
+                    },
+                )
+
+            def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                match_result = result.get("match_result", "")
+                if match_result:
+                    try:
+                        parsed = json.loads(match_result)
+                        # Update session with matched company info
+                        if DB_AVAILABLE and tracker:
+                            exact = parsed.get("exact_match")
+                            if exact:
+                                tracker.update_session(
+                                    session_id,
+                                    company_name=exact.get("name"),
+                                    company_domain=exact.get("top_domain"),
+                                    status=SessionStatus.COMPANY_MATCHED,
+                                )
+                            if step_id:
+                                tracker.complete_step(step_id, parsed)
+                        return parsed
+                    except json.JSONDecodeError:
+                        if step_id and tracker:
+                            tracker.complete_step(
+                                step_id,
+                                error_message="Failed to parse result",
+                            )
+                        return None
                 return None
-        return None
+
+            stream = stream_with_final_result(
+                company_matcher,
+                input_state,
+                extract_result=extract_result,
+            )
+
+            try:
+                async for chunk in stream:
+                    # Collect metrics (best effort)
+                    if chunk.startswith("data: "):
+                        try:
+                            event_data = json.loads(chunk[6:])
+                            event_type = event_data.get("type")
+                            if event_type == "llm_start":
+                                llm_calls += 1
+                            elif event_type == "tool_end":
+                                name = event_data.get("name", "")
+                                if "search" in name.lower():
+                                    search_calls += 1
+                                    sources = event_data.get("sources", [])
+                                    if sources:
+                                        sources_collected.extend(sources)
+                        except json.JSONDecodeError:
+                            pass
+
+                    await job.append(chunk)
+            except Exception as e:
+                error_occurred = str(e)
+                logger.exception("Company matcher job failed")
+                error_chunk = f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
+                await job.append(error_chunk)
+            finally:
+                # Flush metrics once at the end
+                if step_id and tracker:
+                    try:
+                        if llm_calls or search_calls or sources_collected:
+                            tracker.update_step_metrics(
+                                step_id,
+                                llm_calls=llm_calls,
+                                search_calls=search_calls,
+                                sources=sources_collected if sources_collected else None,
+                            )
+                        if error_occurred:
+                            tracker.complete_step(step_id, error_message=error_occurred)
+                    except Exception:
+                        # Never let tracking errors break streaming
+                        pass
+
+                await job.finish()
+        
+        job = await stream_hub.get_or_create(job_key, run_job)
+        
+        async def reconnectable_stream():
+            async for chunk in job.subscribe():
+                yield chunk
+        
+        return StreamingResponse(
+            reconnectable_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
     
-    # Event observer to track metrics
-    def on_event(event: Dict[str, Any]) -> None:
-        if not step_id or not tracker:
-            return
-        event_type = event.get("event")
-        if event_type == "on_chat_model_start":
-            tracker.update_step_metrics(step_id, llm_calls=1)
-        elif event_type == "on_tool_end":
-            name = event.get("name", "")
-            if "search" in name.lower():
-                tracker.update_step_metrics(step_id, search_calls=1)
-    
+    # Fallback: no session_id, run without reconnection support
     stream = stream_with_final_result(
         company_matcher, 
         input_state, 
@@ -625,112 +702,167 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
     
     if not request.company_name.strip():
         raise HTTPException(status_code=400, detail="Company name is required")
-    
-    # Session tracking
+
     session_id = request.session_id
-    step_id = None
-    if session_id and DB_AVAILABLE and tracker:
-        tracker.update_session(session_id, status=SessionStatus.RESEARCHING)
-        step_id = tracker.start_step(
-            session_id,
-            StepType.COMPANY_RESEARCHER,
-            {"company_name": request.company_name, "top_domain": request.top_domain},
+
+    # If we have a session id, make the stream reconnectable:
+    # - first caller starts the background job
+    # - refresh/reconnect replays buffered SSE chunks and continues live
+    if session_id:
+        payload = {
+            "company_name": request.company_name.strip(),
+            "top_domain": (request.top_domain or "").strip(),
+            # summary_long can be big; include it for uniqueness but hash the full payload anyway
+            "summary_long": (request.summary_long or "").strip(),
+            "session_id": session_id,
+        }
+        key = "company_researcher:" + hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+        async def runner(job):  # type: ignore[no-redef]
+            step_id = None
+            try:
+                if DB_AVAILABLE and tracker:
+                    tracker.update_session(session_id, status=SessionStatus.RESEARCHING)
+                    step_id = tracker.start_step(
+                        session_id,
+                        StepType.COMPANY_RESEARCHER,
+                        {
+                            "company_name": payload["company_name"],
+                            "top_domain": payload["top_domain"] or None,
+                        },
+                    )
+
+                input_state: CompanyResearchInputState = {
+                    "messages": [HumanMessage(content=payload["company_name"])],
+                    "company_name": payload["company_name"],
+                    "top_domain": payload["top_domain"] or None,
+                    "summary_long": payload["summary_long"] or None,
+                }
+
+                def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                    final_report = result.get("final_report", "")
+                    if final_report:
+                        try:
+                            parsed = json.loads(final_report)
+                            if DB_AVAILABLE and tracker:
+                                try:
+                                    tracker.update_session(
+                                        session_id, status=SessionStatus.RESEARCH_COMPLETE
+                                    )
+                                    if step_id:
+                                        tracker.complete_step(step_id, parsed)
+                                except Exception:
+                                    logger.exception(
+                                        "Session tracking failed while saving research result"
+                                    )
+                            return parsed
+                        except json.JSONDecodeError:
+                            if step_id and tracker:
+                                try:
+                                    tracker.complete_step(
+                                        step_id,
+                                        error_message="Failed to parse result",
+                                    )
+                                except Exception:
+                                    logger.exception(
+                                        "Session tracking failed while saving parse error"
+                                    )
+                            return None
+                    return None
+
+                stream = stream_with_final_result(
+                    company_researcher,
+                    input_state,
+                    extract_result=extract_result,
+                )
+
+                llm_calls = 0
+                search_calls = 0
+                sources_collected: List[Dict] = []
+                error_occurred = None
+
+                try:
+                    async for chunk in stream:
+                        # Collect metrics (best effort)
+                        if chunk.startswith("data: "):
+                            try:
+                                event_data = json.loads(chunk[6:])
+                                event_type = event_data.get("type")
+                                if event_type == "llm_start":
+                                    llm_calls += 1
+                                elif event_type == "tool_end":
+                                    name = event_data.get("name", "")
+                                    if "search" in name.lower():
+                                        search_calls += 1
+                                        sources = event_data.get("sources", [])
+                                        if sources:
+                                            sources_collected.extend(sources)
+                            except json.JSONDecodeError:
+                                pass
+
+                        await job.append(chunk)
+                except Exception as e:
+                    error_occurred = str(e)
+                    logger.exception("Error while running company research job")
+                    # Emit an error event for subscribers
+                    try:
+                        await job.append(
+                            f"data: {json.dumps({'type': 'error', 'message': error_occurred[:500]})}\n\n"
+                        )
+                        await job.append(f"data: {json.dumps({'type': 'done'})}\n\n")
+                    except Exception:
+                        pass
+                finally:
+                    if step_id and tracker:
+                        try:
+                            if llm_calls or search_calls or sources_collected:
+                                tracker.update_step_metrics(
+                                    step_id,
+                                    llm_calls=llm_calls,
+                                    search_calls=search_calls,
+                                    sources=sources_collected
+                                    if sources_collected
+                                    else None,
+                                )
+                            if error_occurred:
+                                tracker.complete_step(
+                                    step_id, error_message=error_occurred
+                                )
+                        except Exception:
+                            pass
+            finally:
+                await job.finish()
+
+        job = await stream_hub.get_or_create(key, runner)
+
+        return StreamingResponse(
+            job.subscribe(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
         )
-    
+
+    # No session id → fall back to direct streaming (no resume on refresh)
     input_state: CompanyResearchInputState = {
         "messages": [HumanMessage(content=request.company_name.strip())],
         "company_name": request.company_name.strip(),
         "top_domain": (request.top_domain or "").strip() or None,
         "summary_long": (request.summary_long or "").strip() or None,
     }
-    
-    def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        final_report = result.get("final_report", "")
-        if final_report:
-            try:
-                parsed = json.loads(final_report)
-                # Update session with research results (best-effort; never break the response)
-                if session_id and DB_AVAILABLE and tracker:
-                    try:
-                        tracker.update_session(
-                            session_id,
-                            status=SessionStatus.RESEARCH_COMPLETE,
-                        )
-                        if step_id:
-                            tracker.complete_step(step_id, parsed)
-                    except Exception:
-                        logger.exception(
-                            "Session tracking failed while saving research result"
-                        )
-                return parsed
-            except json.JSONDecodeError:
-                if step_id and tracker:
-                    try:
-                        tracker.complete_step(
-                            step_id, error_message="Failed to parse result"
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Session tracking failed while saving parse error"
-                        )
-                return None
-        return None
-    
-    stream = stream_with_final_result(company_researcher, input_state, extract_result=extract_result)
-    
-    # Wrap stream to collect metrics (non-blocking) and update DB at the end
-    async def tracked_stream():
-        llm_calls = 0
-        search_calls = 0
-        sources_collected: List[Dict] = []
-        error_occurred = None
-        
-        try:
-            async for chunk in stream:
-                # Parse events to collect metrics (without DB calls during streaming)
-                if chunk.startswith("data: "):
-                    try:
-                        event_data = json.loads(chunk[6:])
-                        event_type = event_data.get("type")
-                        if event_type == "llm_start":
-                            llm_calls += 1
-                        elif event_type == "tool_end":
-                            name = event_data.get("name", "")
-                            if "search" in name.lower():
-                                search_calls += 1
-                                sources = event_data.get("sources", [])
-                                if sources:
-                                    sources_collected.extend(sources)
-                    except json.JSONDecodeError:
-                        pass
-                yield chunk
-        except Exception as e:
-            error_occurred = str(e)
-            logger.exception("Error while streaming company research")
-            raise
-        finally:
-            # Update DB once at the end (not during streaming)
-            if step_id and tracker:
-                try:
-                    if llm_calls or search_calls or sources_collected:
-                        tracker.update_step_metrics(
-                            step_id, 
-                            llm_calls=llm_calls, 
-                            search_calls=search_calls,
-                            sources=sources_collected if sources_collected else None
-                        )
-                    if error_occurred:
-                        tracker.complete_step(step_id, error_message=error_occurred)
-                except Exception:
-                    pass  # Don't let tracking errors break the response
-    
+
+    stream = stream_with_final_result(company_researcher, input_state)
+
     return StreamingResponse(
-        tracked_stream(),
+        stream,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-        }
+        },
     )
 
 

@@ -14,6 +14,14 @@ export default function HomePage() {
   const handleBegin = () => {
     // Start a new session for each assessment
     startNewSession();
+
+    // Clear all persisted assessment state so we start fresh
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("corinna_assessment_state");
+      sessionStorage.removeItem("corinna_company_matcher_state");
+      sessionStorage.removeItem("corinna_deep_research_state");
+    }
+
     setIsTransitioning(true);
     // Navigate after the fade-out completes
     setTimeout(() => {

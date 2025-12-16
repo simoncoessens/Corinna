@@ -45,6 +45,8 @@ const API_BASE_URL =
     : process.env.NEXT_PUBLIC_API_URL ||
       "https://snip-tool-backend.onrender.com";
 
+const MATCHER_PERSISTENCE_KEY = "corinna_company_matcher_state";
+
 // Extract domain from URL for cleaner display (used for search sources).
 function extractDomain(url: string): string {
   try {
@@ -89,6 +91,19 @@ function LoadingDots() {
   );
 }
 
+// Persisted state shape
+interface PersistedMatcherState {
+  state: MatcherState;
+  companyName: string;
+  countryOfEstablishment: string;
+  allSources: SearchSource[];
+  totalSourceCount: number;
+  sourceCountCapped: boolean;
+  result: CompanyMatchResult | null;
+  selectedCompany: CompanyMatch | null;
+  error: string | null;
+}
+
 export function CompanyMatcher({
   onCompanySelected,
   onStartResearch,
@@ -112,6 +127,88 @@ export function CompanyMatcher({
     null
   );
   const [error, setError] = useState<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const isReconnectingRef = useRef(false);
+  const seenUrlsRef = useRef<Set<string>>(new Set());
+
+  // Persist state to sessionStorage
+  const persistState = useCallback(() => {
+    if (typeof window === "undefined" || !hasHydrated) return;
+    try {
+      const payload: PersistedMatcherState = {
+        state,
+        companyName,
+        countryOfEstablishment,
+        allSources,
+        totalSourceCount,
+        sourceCountCapped,
+        result,
+        selectedCompany,
+        error,
+      };
+      sessionStorage.setItem(MATCHER_PERSISTENCE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore
+    }
+  }, [
+    hasHydrated,
+    state,
+    companyName,
+    countryOfEstablishment,
+    allSources,
+    totalSourceCount,
+    sourceCountCapped,
+    result,
+    selectedCompany,
+    error,
+  ]);
+
+  // Hydrate state from sessionStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setHasHydrated(true);
+      return;
+    }
+    const raw = sessionStorage.getItem(MATCHER_PERSISTENCE_KEY);
+    if (!raw) {
+      setHasHydrated(true);
+      return;
+    }
+    try {
+      const data = JSON.parse(raw) as PersistedMatcherState;
+      if (data.companyName) setCompanyName(data.companyName);
+      if (data.countryOfEstablishment)
+        setCountryOfEstablishment(data.countryOfEstablishment);
+      if (data.allSources) {
+        setAllSources(data.allSources);
+        allSourcesRef.current = data.allSources;
+        seenUrlsRef.current = new Set(data.allSources.map((s) => s.url));
+      }
+      if (typeof data.totalSourceCount === "number")
+        setTotalSourceCount(data.totalSourceCount);
+      if (typeof data.sourceCountCapped === "boolean")
+        setSourceCountCapped(data.sourceCountCapped);
+      if (data.result) setResult(data.result);
+      if (data.selectedCompany) setSelectedCompany(data.selectedCompany);
+      if (data.error !== undefined) setError(data.error);
+      // If we were searching, reconnect to the stream
+      if (data.state === "searching") {
+        setState("searching");
+        isReconnectingRef.current = true;
+      } else if (data.state) {
+        setState(data.state);
+      }
+    } catch (e) {
+      console.warn("[CompanyMatcher] Failed to restore state", e);
+    } finally {
+      setHasHydrated(true);
+    }
+  }, []);
+
+  // Persist state whenever it changes
+  useEffect(() => {
+    persistState();
+  }, [persistState]);
 
   // Emit "what user can see" snapshot for chat context
   useEffect(() => {
@@ -186,6 +283,8 @@ export function CompanyMatcher({
           if (prev.some((s) => s.url === next.url)) return prev;
           return [...prev, next];
         });
+        seenUrlsRef.current.add(next.url);
+        setTotalSourceCount(seenUrlsRef.current.size);
       }
       nextTimerRef.current = window.setTimeout(processNext, SOURCE_ADD_DELAY);
     };
@@ -203,6 +302,7 @@ export function CompanyMatcher({
       const existingUrls = new Set([
         ...allSourcesRef.current.map((s) => s.url),
         ...sourceQueueRef.current.map((s) => s.url),
+        ...Array.from(seenUrlsRef.current.values()),
       ]);
       const uniqueNew = incoming.filter((s) => !existingUrls.has(s.url));
       if (uniqueNew.length === 0) return;
@@ -218,116 +318,144 @@ export function CompanyMatcher({
       if (toAdd.length === 0) return;
 
       sourceQueueRef.current.push(...toAdd);
-      setTotalSourceCount((c) => Math.min(MAX_TOTAL_SOURCES, c + toAdd.length));
+      toAdd.forEach((s) => seenUrlsRef.current.add(s.url));
+      setTotalSourceCount(seenUrlsRef.current.size);
       processQueue();
     },
     [processQueue, totalSourceCount]
   );
 
-  const handleSearch = useCallback(async () => {
-    if (!companyName.trim() || !countryOfEstablishment.trim()) return;
+  // Core streaming logic, used for both initial search and reconnection
+  const runStream = useCallback(
+    async (isReconnect: boolean = false) => {
+      if (!companyName.trim() || !countryOfEstablishment.trim()) return;
 
-    setState("searching");
-    setAllSources([]);
-    setVisibleSources([]);
-    setTotalSourceCount(0);
-    setSourceCountCapped(false);
-    setIsSearching(true);
-    setError(null);
-    setResult(null);
-    allSourcesRef.current = [];
-    sourceQueueRef.current = [];
-    processingRef.current = false;
-    if (nextTimerRef.current) {
-      window.clearTimeout(nextTimerRef.current);
-      nextTimerRef.current = null;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/agents/company_matcher/stream`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            company_name: companyName.trim(),
-            country_of_establishment: countryOfEstablishment.trim(),
-            session_id: getSessionId(),
-          }),
+      // Only reset state for fresh searches, not reconnects
+      if (!isReconnect) {
+        setState("searching");
+        setAllSources([]);
+        setVisibleSources([]);
+        setTotalSourceCount(0);
+        setSourceCountCapped(false);
+        setError(null);
+        setResult(null);
+        allSourcesRef.current = [];
+        sourceQueueRef.current = [];
+        processingRef.current = false;
+        if (nextTimerRef.current) {
+          window.clearTimeout(nextTimerRef.current);
+          nextTimerRef.current = null;
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error("No response body");
-      }
+      setIsSearching(true);
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/agents/company_matcher/stream`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company_name: companyName.trim(),
+              country_of_establishment: countryOfEstablishment.trim(),
+              session_id: getSessionId(),
+            }),
+          }
+        );
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status}`);
+        }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        if (!response.body) {
+          throw new Error("No response body");
+        }
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            try {
-              const event = JSON.parse(data) as StreamEvent;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-              switch (event.type) {
-                case "tool_start":
-                  if (event.name === "web_search") {
-                    setIsSearching(true);
-                  }
-                  break;
-                case "tool_end":
-                  const toolEndEvent = event as ToolEndEvent;
-                  if (
-                    toolEndEvent.name === "web_search" &&
-                    toolEndEvent.sources
-                  ) {
-                    queueSources(toolEndEvent.sources);
-                  }
-                  setIsSearching(false);
-                  break;
-                case "result":
-                  const resultData = (event as ResultEvent<CompanyMatchResult>)
-                    .data;
-                  setResult(resultData);
-                  if (resultData.exact_match) {
-                    setSelectedCompany(resultData.exact_match);
-                    setState("found");
-                  } else if (resultData.suggestions?.length > 0) {
-                    setState("found");
-                  } else {
-                    setState("not_found");
-                  }
-                  break;
-                case "error":
-                  setError(event.message);
-                  setState("error");
-                  break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6).trim();
+              try {
+                const event = JSON.parse(data) as StreamEvent;
+
+                switch (event.type) {
+                  case "tool_start":
+                    if (event.name === "web_search") {
+                      setIsSearching(true);
+                    }
+                    break;
+                  case "tool_end":
+                    const toolEndEvent = event as ToolEndEvent;
+                    if (
+                      toolEndEvent.name === "web_search" &&
+                      toolEndEvent.sources
+                    ) {
+                      queueSources(toolEndEvent.sources);
+                    }
+                    setIsSearching(false);
+                    break;
+                  case "result":
+                    const resultData = (
+                      event as ResultEvent<CompanyMatchResult>
+                    ).data;
+                    setResult(resultData);
+                    if (resultData.exact_match) {
+                      setSelectedCompany(resultData.exact_match);
+                      setState("found");
+                    } else if (resultData.suggestions?.length > 0) {
+                      setState("found");
+                    } else {
+                      setState("not_found");
+                    }
+                    break;
+                  case "error":
+                    setError(event.message);
+                    setState("error");
+                    break;
+                }
+              } catch {
+                // Skip invalid JSON
               }
-            } catch {
-              // Skip invalid JSON
             }
           }
         }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+        setState("error");
+      } finally {
+        isReconnectingRef.current = false;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setState("error");
+    },
+    [companyName, countryOfEstablishment, queueSources]
+  );
+
+  const handleSearch = useCallback(async () => {
+    await runStream(false);
+  }, [runStream]);
+
+  // Reconnect to stream after hydration if we were in searching state
+  useEffect(() => {
+    if (
+      hasHydrated &&
+      isReconnectingRef.current &&
+      companyName &&
+      countryOfEstablishment
+    ) {
+      runStream(true);
     }
-  }, [companyName, countryOfEstablishment, queueSources]);
+  }, [hasHydrated, companyName, countryOfEstablishment, runStream]);
 
   const handleReset = () => {
     setState("input");
@@ -343,9 +471,14 @@ export function CompanyMatcher({
     allSourcesRef.current = [];
     sourceQueueRef.current = [];
     processingRef.current = false;
+    seenUrlsRef.current = new Set();
     if (nextTimerRef.current) {
       window.clearTimeout(nextTimerRef.current);
       nextTimerRef.current = null;
+    }
+    // Clear persisted state
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(MATCHER_PERSISTENCE_KEY);
     }
   };
 

@@ -167,3 +167,4 @@ class TestServiceCategorizerGraph:
         assert "analyze_obligations" in _builder.nodes
         assert "generate_report" in _builder.nodes
 
+

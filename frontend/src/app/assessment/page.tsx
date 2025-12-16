@@ -44,6 +44,8 @@ type ResearchStep =
   | "complete"
   | "error";
 
+const PERSISTENCE_KEY = "corinna_assessment_state";
+
 export default function AssessmentPage() {
   const [currentPhase, setCurrentPhase] = useState<AssessmentPhase>("research");
   const [completedPhases, setCompletedPhases] = useState<AssessmentPhase[]>([]);
@@ -65,6 +67,166 @@ export default function AssessmentPage() {
     useState<ChatContext["visibleUi"]>();
   const [corinnaQuestion, setCorinnaQuestion] = useState<string>("");
   const [contextMode, setContextMode] = useState<ContextMode>("general");
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  const persistNow = useCallback(
+    (
+      partial: Partial<{
+        currentPhase: AssessmentPhase;
+        completedPhases: AssessmentPhase[];
+        researchStep: ResearchStep;
+        selectedCompany: CompanyMatch | null;
+        researchResult: CompanyResearchResult | null;
+        confirmedAnswers: Record<ResearchSection, SubQuestionAnswer[]>;
+        error: string | null;
+        complianceReport: ComplianceReport | null;
+        isManualEntry: boolean;
+        visibleUiStep: ChatContext["visibleUi"];
+        contextMode: ContextMode;
+        corinnaQuestion: string;
+      }>
+    ) => {
+      if (typeof window === "undefined") return;
+      try {
+        const payload = {
+          currentPhase,
+          completedPhases,
+          researchStep,
+          selectedCompany,
+          researchResult,
+          confirmedAnswers,
+          error,
+          complianceReport,
+          isManualEntry,
+          visibleUiStep,
+          contextMode,
+          corinnaQuestion,
+          ...partial,
+        };
+        sessionStorage.setItem(PERSISTENCE_KEY, JSON.stringify(payload));
+      } catch {
+        // ignore persistence errors
+      }
+    },
+    [
+      currentPhase,
+      completedPhases,
+      researchStep,
+      selectedCompany,
+      researchResult,
+      confirmedAnswers,
+      error,
+      complianceReport,
+      isManualEntry,
+      visibleUiStep,
+      contextMode,
+      corinnaQuestion,
+    ]
+  );
+
+  // Restore state from sessionStorage so a refresh continues the flow
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = sessionStorage.getItem(PERSISTENCE_KEY);
+    if (!raw) {
+      setHasHydrated(true);
+      return;
+    }
+
+    try {
+      const data = JSON.parse(raw) as {
+        currentPhase?: AssessmentPhase;
+        completedPhases?: AssessmentPhase[];
+        researchStep?: ResearchStep;
+        selectedCompany?: CompanyMatch | null;
+        researchResult?: CompanyResearchResult | null;
+        confirmedAnswers?: Record<ResearchSection, SubQuestionAnswer[]>;
+        error?: string | null;
+        complianceReport?: ComplianceReport | null;
+        isManualEntry?: boolean;
+        visibleUiStep?: ChatContext["visibleUi"];
+        contextMode?: ContextMode;
+        corinnaQuestion?: string;
+      };
+
+      if (data.currentPhase) setCurrentPhase(data.currentPhase);
+      if (data.completedPhases) setCompletedPhases(data.completedPhases);
+      if (data.researchStep) setResearchStep(data.researchStep);
+      if (data.selectedCompany) setSelectedCompany(data.selectedCompany);
+      if (data.researchResult) setResearchResult(data.researchResult);
+      if (data.confirmedAnswers) setConfirmedAnswers(data.confirmedAnswers);
+      if (typeof data.error !== "undefined") setError(data.error);
+      if (data.complianceReport) setComplianceReport(data.complianceReport);
+      if (typeof data.isManualEntry === "boolean")
+        setIsManualEntry(data.isManualEntry);
+      if (data.visibleUiStep) setVisibleUiStep(data.visibleUiStep);
+      if (data.contextMode) setContextMode(data.contextMode);
+      if (data.corinnaQuestion) setCorinnaQuestion(data.corinnaQuestion);
+    } catch (e) {
+      console.warn("[SNIP] Failed to restore assessment state", e);
+    } finally {
+      setHasHydrated(true);
+    }
+  }, []);
+
+  // Persist state so refresh keeps the current position
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasHydrated) return;
+
+    const payload = {
+      currentPhase,
+      completedPhases,
+      researchStep,
+      selectedCompany,
+      researchResult,
+      confirmedAnswers,
+      error,
+      complianceReport,
+      isManualEntry,
+      visibleUiStep,
+      contextMode,
+      corinnaQuestion,
+    };
+
+    try {
+      sessionStorage.setItem(PERSISTENCE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // sessionStorage might be full (quota exceeded), especially with large compliance reports
+      // Try to persist at least the essential navigation state without the large report
+      console.warn("[SNIP] Failed to persist full state, trying minimal:", e);
+      try {
+        const minimalPayload = {
+          currentPhase,
+          completedPhases,
+          researchStep,
+          selectedCompany,
+          // Skip researchResult and complianceReport as they can be large
+          confirmedAnswers,
+          error,
+          complianceReport: null, // Mark as needing re-fetch
+          isManualEntry,
+          contextMode,
+        };
+        sessionStorage.setItem(PERSISTENCE_KEY, JSON.stringify(minimalPayload));
+      } catch (e2) {
+        console.warn("[SNIP] Failed to persist even minimal state:", e2);
+      }
+    }
+  }, [
+    hasHydrated,
+    currentPhase,
+    completedPhases,
+    researchStep,
+    selectedCompany,
+    researchResult,
+    confirmedAnswers,
+    error,
+    complianceReport,
+    isManualEntry,
+    visibleUiStep,
+    contextMode,
+    corinnaQuestion,
+  ]);
 
   // Reset visible UI snapshot when the user navigates to a different step.
   useEffect(() => {
@@ -318,18 +480,36 @@ export default function AssessmentPage() {
     }
   }, [researchStep]);
 
-  const handleCompanySelected = useCallback((company: CompanyMatch) => {
-    setSelectedCompany(company);
-  }, []);
+  const handleCompanySelected = useCallback(
+    (company: CompanyMatch) => {
+      setSelectedCompany(company);
+      // Persist immediately so refresh can't drop us back
+      persistNow({ selectedCompany: company });
+    },
+    [persistNow]
+  );
 
-  const handleStartResearch = useCallback((_companyName: string) => {
-    setResearchStep("deep_research");
-  }, []);
+  const handleStartResearch = useCallback(
+    (_companyName: string) => {
+      setResearchStep("deep_research");
+      // Persist immediately so a refresh during stream stays on deep research
+      persistNow({ researchStep: "deep_research" });
+      // Clear company matcher state since we've moved past it
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("corinna_company_matcher_state");
+      }
+    },
+    [persistNow]
+  );
 
   const handleResearchComplete = useCallback(
     (result: CompanyResearchResult) => {
       setResearchResult(result);
       setResearchStep("review_scope");
+      // Clear deep research state since we've moved past it
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("corinna_deep_research_state");
+      }
     },
     []
   );
@@ -406,6 +586,11 @@ export default function AssessmentPage() {
   const handleReset = () => {
     // Start a new session for the new assessment
     startNewSession();
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(PERSISTENCE_KEY);
+      sessionStorage.removeItem("corinna_company_matcher_state");
+      sessionStorage.removeItem("corinna_deep_research_state");
+    }
 
     setResearchStep("company_match");
     setSelectedCompany(null);
@@ -448,6 +633,38 @@ export default function AssessmentPage() {
     setComplianceReport(report);
     setCompletedPhases(["research", "classify"]);
     setCurrentPhase("report");
+
+    // Persist immediately so a fast refresh doesn't drop back to classification
+    if (typeof window !== "undefined") {
+      try {
+        const raw = sessionStorage.getItem(PERSISTENCE_KEY);
+        let base: Record<string, unknown> = {};
+        if (raw) {
+          try {
+            base = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            // ignore parse errors, we'll overwrite with minimal state
+          }
+        }
+
+        const minimalPayload = {
+          ...base,
+          currentPhase: "report" as AssessmentPhase,
+          completedPhases: ["research", "classify"] as AssessmentPhase[],
+          researchStep,
+          selectedCompany,
+          confirmedAnswers,
+          isManualEntry,
+          contextMode,
+          // Do not persist full complianceReport here to avoid quota issues;
+          // the effect-based persistence will try to store it separately.
+        };
+
+        sessionStorage.setItem(PERSISTENCE_KEY, JSON.stringify(minimalPayload));
+      } catch {
+        // If this fails, we still have in-memory state; worst case, the user will re-run classification.
+      }
+    }
   };
 
   const handleClassificationError = (errorMsg: string) => {
@@ -766,7 +983,7 @@ export default function AssessmentPage() {
               )}
 
               {/* Report Phase */}
-              {currentPhase === "report" && complianceReport && (
+              {currentPhase === "report" && (
                 <motion.div
                   key="report"
                   initial={{ opacity: 0, y: 20 }}
@@ -774,13 +991,41 @@ export default function AssessmentPage() {
                   exit={{ opacity: 0, y: -20 }}
                   className="w-full"
                 >
-                  <ComplianceDashboard
-                    report={complianceReport}
-                    companyProfile={companyProfile}
-                    onBack={handleBackFromDashboard}
-                    onVisibleStateChange={setVisibleUiStep}
-                    onAskCorinna={handleAskCorinnaObligation}
-                  />
+                  {complianceReport ? (
+                    <ComplianceDashboard
+                      report={complianceReport}
+                      companyProfile={companyProfile}
+                      onBack={handleBackFromDashboard}
+                      onVisibleStateChange={setVisibleUiStep}
+                      onAskCorinna={handleAskCorinnaObligation}
+                    />
+                  ) : (
+                    // Report is missing (possibly due to sessionStorage limits) - show loading or re-run categorizer
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-14 h-14 bg-[#fef3c7] flex items-center justify-center mb-6">
+                        <Scale className="w-6 h-6 text-[#d97706]" />
+                      </div>
+                      <h2 className="font-serif text-2xl text-[#0a0a0a] mb-2">
+                        Report Not Available
+                      </h2>
+                      <p className="font-sans text-sm text-[#78716c] mb-8 max-w-md">
+                        The compliance report could not be restored. This may
+                        happen after a page refresh if the report data was too
+                        large. Please re-run the classification.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCurrentPhase("classify");
+                          setCompletedPhases(["research"]);
+                        }}
+                        variant="primary"
+                        size="lg"
+                      >
+                        <Scale className="w-4 h-4" />
+                        Re-run Classification
+                      </Button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
