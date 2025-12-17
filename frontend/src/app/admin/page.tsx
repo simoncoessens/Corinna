@@ -1614,9 +1614,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf9]">
+    <div className="h-screen bg-[#fafaf9] flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-[#e7e5e4] px-6 py-4">
+      <header className="bg-white border-b border-[#e7e5e4] px-6 py-4 shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="font-serif text-2xl text-[#0a0a0a]">
@@ -1647,151 +1647,153 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Error Banner */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 bg-red-50 border border-red-200 px-4 py-3 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-600 hover:text-red-800"
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Error Banner */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 bg-red-50 border border-red-200 px-4 py-3 flex items-center justify-between"
             >
-              <XCircle className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-
-        {/* Stats Grid */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              title="Total Sessions"
-              value={stats.total_sessions}
-              icon={Users}
-              subtitle={`Last ${stats.period_days} days`}
-            />
-            <StatCard
-              title="Completed"
-              value={stats.completed_sessions}
-              icon={CheckCircle2}
-              color="success"
-            />
-            <StatCard
-              title="Error Rate"
-              value={`${stats.error_rate_percent}%`}
-              icon={AlertTriangle}
-              color={stats.error_rate_percent > 10 ? "error" : "default"}
-              subtitle={`${stats.error_count} errors`}
-            />
-            <StatCard
-              title="Estimated Cost"
-              value={`$${stats.estimated_cost_usd.toFixed(2)}`}
-              icon={DollarSign}
-              subtitle={`${stats.total_llm_calls} LLM / ${stats.total_search_calls} searches`}
-            />
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="bg-white border border-[#e7e5e4] p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a8a29e]" />
-                <input
-                  type="text"
-                  placeholder="Search by company name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-4 bg-[#fafaf9] border border-[#e7e5e4] font-sans text-sm focus:outline-none focus:border-[#0a0a0a] transition-colors"
-                />
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <p className="text-red-700 text-sm">{error}</p>
               </div>
-            </div>
-            <select
-              value={statusFilter || ""}
-              onChange={(e) => setStatusFilter(e.target.value || null)}
-              className="h-10 px-4 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a]"
-            >
-              <option value="">All Statuses</option>
-              <option value="completed">Completed</option>
-              <option value="error">Error</option>
-              <option value="started">Started</option>
-              <option value="researching">Researching</option>
-              <option value="classifying">Classifying</option>
-            </select>
-            <select
-              value={daysFilter}
-              onChange={(e) => setDaysFilter(Number(e.target.value))}
-              className="h-10 px-4 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a]"
-            >
-              <option value={1}>Last 24 hours</option>
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Sessions List */}
-        <div className="bg-white border border-[#e7e5e4]">
-          <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-            <span className="font-mono text-xs uppercase tracking-wider text-[#78716c]">
-              Sessions
-            </span>
-            <span className="font-mono text-xs text-[#a8a29e]">
-              Page {page} of {totalPages}
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-[#78716c]" />
-            </div>
-          ) : error ? (
-            <div className="p-8 text-center">
-              <XCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-              <p className="text-red-600">{error}</p>
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className="p-8 text-center text-[#78716c]">
-              No sessions found
-            </div>
-          ) : (
-            <>
-              {sessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  session={session}
-                  onClick={() => fetchSessionDetail(session.id)}
-                  onExportPdf={() => exportPdf(session.id)}
-                />
-              ))}
-              {/* Pagination */}
-              <div className="px-5 py-4 border-t border-[#e7e5e4] flex items-center justify-between">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-4 py-2 bg-[#f5f5f4] text-[#0a0a0a] text-sm disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-4 py-2 bg-[#f5f5f4] text-[#0a0a0a] text-sm disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            </>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-600 hover:text-red-800"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            </motion.div>
           )}
+
+          {/* Stats Grid */}
+          {stats && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <StatCard
+                title="Total Sessions"
+                value={stats.total_sessions}
+                icon={Users}
+                subtitle={`Last ${stats.period_days} days`}
+              />
+              <StatCard
+                title="Completed"
+                value={stats.completed_sessions}
+                icon={CheckCircle2}
+                color="success"
+              />
+              <StatCard
+                title="Error Rate"
+                value={`${stats.error_rate_percent}%`}
+                icon={AlertTriangle}
+                color={stats.error_rate_percent > 10 ? "error" : "default"}
+                subtitle={`${stats.error_count} errors`}
+              />
+              <StatCard
+                title="Estimated Cost"
+                value={`$${stats.estimated_cost_usd.toFixed(2)}`}
+                icon={DollarSign}
+                subtitle={`${stats.total_llm_calls} LLM / ${stats.total_search_calls} searches`}
+              />
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="bg-white border border-[#e7e5e4] p-4 mb-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a8a29e]" />
+                  <input
+                    type="text"
+                    placeholder="Search by company name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 pl-10 pr-4 bg-[#fafaf9] border border-[#e7e5e4] font-sans text-sm focus:outline-none focus:border-[#0a0a0a] transition-colors"
+                  />
+                </div>
+              </div>
+              <select
+                value={statusFilter || ""}
+                onChange={(e) => setStatusFilter(e.target.value || null)}
+                className="h-10 px-4 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a]"
+              >
+                <option value="">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="error">Error</option>
+                <option value="started">Started</option>
+                <option value="researching">Researching</option>
+                <option value="classifying">Classifying</option>
+              </select>
+              <select
+                value={daysFilter}
+                onChange={(e) => setDaysFilter(Number(e.target.value))}
+                className="h-10 px-4 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a]"
+              >
+                <option value={1}>Last 24 hours</option>
+                <option value={7}>Last 7 days</option>
+                <option value={30}>Last 30 days</option>
+                <option value={90}>Last 90 days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Sessions List */}
+          <div className="bg-white border border-[#e7e5e4]">
+            <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+              <span className="font-mono text-xs uppercase tracking-wider text-[#78716c]">
+                Sessions
+              </span>
+              <span className="font-mono text-xs text-[#a8a29e]">
+                Page {page} of {totalPages}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-[#78716c]" />
+              </div>
+            ) : error ? (
+              <div className="p-8 text-center">
+                <XCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+                <p className="text-red-600">{error}</p>
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="p-8 text-center text-[#78716c]">
+                No sessions found
+              </div>
+            ) : (
+              <>
+                {sessions.map((session) => (
+                  <SessionRow
+                    key={session.id}
+                    session={session}
+                    onClick={() => fetchSessionDetail(session.id)}
+                    onExportPdf={() => exportPdf(session.id)}
+                  />
+                ))}
+                {/* Pagination */}
+                <div className="px-5 py-4 border-t border-[#e7e5e4] flex items-center justify-between">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-4 py-2 bg-[#f5f5f4] text-[#0a0a0a] text-sm disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-4 py-2 bg-[#f5f5f4] text-[#0a0a0a] text-sm disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </main>
 
