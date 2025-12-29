@@ -12,6 +12,7 @@ import {
   ExternalLink,
   MapPin,
   PenLine,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -71,26 +72,6 @@ const SOURCE_ADD_DELAY = 900; // ms between adding each source
 const MAX_SOURCES_PER_TOOL_EVENT = 8;
 const MAX_TOTAL_SOURCES = 25; // cap for UI stability
 
-// Animated dots for loading
-function LoadingDots() {
-  return (
-    <span className="inline-flex gap-[2px] ml-1">
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          key={i}
-          className="w-1 h-1 bg-current"
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{
-            duration: 1,
-            repeat: Infinity,
-            delay: i * 0.2,
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
 // Persisted state shape
 interface PersistedMatcherState {
   state: MatcherState;
@@ -127,6 +108,8 @@ export function CompanyMatcher({
     null
   );
   const [error, setError] = useState<string | null>(null);
+  const [searchProgress, setSearchProgress] = useState(0);
+  const [showSources, setShowSources] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const isReconnectingRef = useRef(false);
   const seenUrlsRef = useRef<Set<string>>(new Set());
@@ -265,6 +248,24 @@ export function CompanyMatcher({
   }, [allSources]);
 
   useEffect(() => {
+    if (state !== "searching") {
+      setSearchProgress(0);
+      return;
+    }
+
+    setSearchProgress(12);
+    const interval = window.setInterval(() => {
+      setSearchProgress((prev) => {
+        if (prev >= 92) return prev;
+        const increment = 2 + Math.random() * 6;
+        return Math.min(prev + increment, 92);
+      });
+    }, 1700);
+
+    return () => window.clearInterval(interval);
+  }, [state]);
+
+  useEffect(() => {
     allSourcesRef.current = allSources;
   }, [allSources]);
 
@@ -342,6 +343,8 @@ export function CompanyMatcher({
         allSourcesRef.current = [];
         sourceQueueRef.current = [];
         processingRef.current = false;
+        setShowSources(false);
+        setSearchProgress(12);
         if (nextTimerRef.current) {
           window.clearTimeout(nextTimerRef.current);
           nextTimerRef.current = null;
@@ -468,6 +471,8 @@ export function CompanyMatcher({
     setResult(null);
     setSelectedCompany(null);
     setError(null);
+    setShowSources(false);
+    setSearchProgress(0);
     allSourcesRef.current = [];
     sourceQueueRef.current = [];
     processingRef.current = false;
@@ -490,9 +495,103 @@ export function CompanyMatcher({
   };
 
   const handleManualEntry = () => {
+    if (!companyName.trim() || !countryOfEstablishment.trim()) return;
+
     if (onManualEntry) {
       onManualEntry(companyName.trim(), countryOfEstablishment.trim());
     }
+  };
+
+  const sourceCountLabel = sourceCountCapped
+    ? `${MAX_TOTAL_SOURCES}+`
+    : totalSourceCount;
+  const hasSources = allSources.length > 0 || totalSourceCount > 0;
+
+  const SourcesPanel = () => {
+    if (!hasSources) return null;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full mt-8"
+      >
+        <div className="border border-[#e7e5e4] bg-white">
+          <button
+            type="button"
+            onClick={() => setShowSources((prev) => !prev)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#f5f5f4] border border-[#e7e5e4] flex items-center justify-center shrink-0">
+                <Globe className="w-4 h-4 text-[#57534e]" />
+              </div>
+              <div>
+                <p className="font-serif text-lg text-[#0a0a0a]">
+                  Lookup sources
+                </p>
+                <p className="font-mono text-[11px] text-[#78716c]">
+                  {sourceCountLabel} captured for this search
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="px-3 py-1 bg-[#0a0a0a] text-white font-mono text-xs uppercase tracking-wider">
+                {sourceCountLabel}
+              </span>
+              <motion.div
+                animate={{ rotate: showSources ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ChevronDown className="w-4 h-4 text-[#0a0a0a]" />
+              </motion.div>
+            </div>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {showSources && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25 }}
+                className="border-t border-[#e7e5e4] px-5 py-4 space-y-3"
+              >
+                <p className="font-mono text-[11px] text-[#a8a29e]">
+                  Showing {allSources.length} saved sources
+                </p>
+                <div className="max-h-60 overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
+                  {allSources.map((source) => (
+                    <a
+                      key={source.url}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-3 flex items-start gap-3 group"
+                    >
+                      <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+                        <Globe className="w-3 h-3 text-[#78716c]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {source.title && (
+                          <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5 group-hover:text-[#0a0a0a]">
+                            {source.title}
+                          </p>
+                        )}
+                        <p className="font-mono text-[11px] text-[#78716c] truncate group-hover:text-[#0a0a0a]">
+                          {extractDomain(source.url)}
+                        </p>
+                      </div>
+                      <ExternalLink className="w-3 h-3 text-[#a8a29e] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    );
   };
 
   return (
@@ -587,36 +686,53 @@ export function CompanyMatcher({
                     "font-sans text-base text-[#0a0a0a] placeholder:text-[#a8a29e]",
                     "focus:outline-none focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#0a0a0a]/10",
                     "transition-all duration-200"
-                  )}
-                />
-              </div>
+              )}
+            />
+          </div>
 
-              <Button
+          <Button
                 onClick={handleSearch}
                 disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                 size="lg"
                 variant="primary"
                 className="w-full h-12 flex items-center justify-center gap-2 mt-2"
               >
-                <Search className="w-4 h-4" />
-                <span>Search Organization</span>
-              </Button>
+            <Search className="w-4 h-4" />
+            <span>Search Organization</span>
+          </Button>
 
-              {/* Manual entry option (available before search) */}
-              {onManualEntry && (
-                <Button
-                  onClick={handleManualEntry}
-                  variant="ghost"
-                  size="lg"
-                  className="w-full h-12 flex items-center justify-center gap-2 text-[#78716c] hover:text-[#0a0a0a]"
-                >
-                  <PenLine className="w-4 h-4" />
-                  <span>Enter data manually</span>
-                </Button>
-              )}
+          {/* Manual entry option (available before search) */}
+          {onManualEntry && (
+            <div className="w-full mt-3 rounded-lg border border-[#e7e5e4] bg-white px-4 py-3 flex flex-col gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5">
+                  <PenLine className="w-4 h-4 text-[#0a0a0a]" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-sans text-sm text-[#0a0a0a]">
+                    Prefer to enter it yourself?
+                  </p>
+                  <p className="font-sans text-xs text-[#78716c]">
+                    We can gather details for you to confirm, or you can enter company
+                    data manually.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleManualEntry}
+                variant="outline"
+                size="lg"
+                disabled={!companyName.trim() || !countryOfEstablishment.trim()}
+                className="w-full border-[#d6d3d1] hover:border-[#0a0a0a]"
+              >
+                <PenLine className="w-4 h-4" />
+                <span>Enter details manually</span>
+              </Button>
             </div>
-          </motion.div>
-        )}
+          )}
+        </div>
+      </motion.div>
+    )}
 
         {/* Searching State - styled like DeepResearch */}
         {state === "searching" && (
@@ -678,93 +794,97 @@ export function CompanyMatcher({
 
             {/* Sources card - mirrored from DeepResearch */}
             <div className="w-full border border-[#e7e5e4] bg-white">
-              {/* Sources header */}
-              <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
-                  Sources analyzed
-                </span>
-                <span className="font-mono text-sm font-medium text-[#0a0a0a] tabular-nums">
-                  {sourceCountCapped
-                    ? `${MAX_TOTAL_SOURCES}+`
-                    : totalSourceCount}
-                </span>
+              <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-1 text-left">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
+                    Lookup in progress
+                  </span>
+                  <p className="font-sans text-sm text-[#57534e]">Building candidate matches</p>
+                </div>
+                <div className="px-3 py-1 bg-[#0a0a0a] text-white font-mono text-xs uppercase tracking-wider">
+                  {Math.max(12, Math.round(searchProgress))}%
+                </div>
               </div>
 
-              {/* Sources list */}
-              {/* Fixed height tuned for max 3 sources (3 x 50px) */}
-              <div className="h-[150px] overflow-hidden no-scrollbar">
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {visibleSources.length === 0 ? (
-                    <motion.div
-                      key="loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="h-[150px] flex flex-col items-center justify-center overflow-hidden"
-                    >
-                      <motion.div
-                        className="flex gap-1.5 mb-3"
-                        animate={{ opacity: [0.4, 1, 0.4] }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
+              <div className="px-5 py-6 space-y-5">
+                <div className="relative h-2 bg-[#f5f5f4] border border-[#e7e5e4] overflow-hidden">
+                  <motion.div
+                    className="absolute inset-y-0 left-0 bg-[#0a0a0a]"
+                    animate={{ width: `${Math.max(searchProgress, 8)}%` }}
+                    transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+                  />
+                  <motion.div
+                    className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-60"
+                    animate={{ x: ["-30%", "120%"] }}
+                    transition={{
+                      duration: 1.8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                </div>
+
+                <div className="grid gap-3">
+                  {[
+                    {
+                      label: "Identifying legal entities",
+                      threshold: 12,
+                      activeLabel: "verified",
+                      idleLabel: "in review",
+                    },
+                    {
+                      label: "Cross-checking official registries",
+                      threshold: 42,
+                      activeLabel: "verified",
+                      idleLabel: "in review",
+                    },
+                    {
+                      label: "Preparing results",
+                      threshold: 72,
+                      activeLabel: "ready",
+                      idleLabel: "pending",
+                    },
+                  ].map((item) => {
+                    const isActive =
+                      Math.max(searchProgress, 8) >= item.threshold;
+                    return (
+                      <div
+                        key={item.label}
+                        className="flex items-center gap-3 rounded-sm"
                       >
-                        <div className="w-1.5 h-1.5 bg-[#0a0a0a]" />
-                        <div className="w-1.5 h-1.5 bg-[#78716c]" />
-                        <div className="w-1.5 h-1.5 bg-[#a8a29e]" />
-                      </motion.div>
-                      <span className="font-mono text-[11px] text-[#a8a29e]">
-                        Searching for sources...
-                      </span>
-                    </motion.div>
-                  ) : (
-                    <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
-                      {visibleSources.map((source) => (
-                        <motion.div
-                          key={source.url}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{
-                            duration: 0.4,
-                            ease: [0.25, 0.1, 0.25, 1],
-                            layout: { duration: 0.3 },
-                          }}
-                          className="px-5 py-3 flex items-center gap-3"
+                        <div
+                          className={cn(
+                            "w-7 h-7 rounded-full flex items-center justify-center border transition-colors duration-300",
+                            isActive
+                              ? "border-[#0a0a0a] bg-[#0a0a0a]"
+                              : "border-[#e7e5e4] bg-[#f5f5f4]"
+                          )}
                         >
-                          <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
-                            <Globe className="w-3 h-3 text-[#78716c]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            {source.title && (
-                              <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5">
-                                {source.title}
-                              </p>
-                            )}
-                            <p className="font-mono text-[11px] text-[#78716c] truncate">
-                              {extractDomain(source.url)}
-                            </p>
-                          </div>
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{
-                              delay: 0.2,
-                              duration: 0.2,
-                              ease: "backOut",
-                            }}
-                            className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center shrink-0"
-                          >
-                            <Check className="w-3 h-3 text-[#16a34a]" />
-                          </motion.div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </AnimatePresence>
+                          {isActive ? (
+                            <Check className="w-3.5 h-3.5 text-white" />
+                          ) : (
+                            <motion.div
+                              className="w-2 h-2 rounded-full bg-[#78716c]"
+                              animate={{
+                                scale: [1, 1.2, 1],
+                                opacity: [0.5, 1, 0.5],
+                              }}
+                              transition={{ duration: 1.2, repeat: Infinity }}
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-sans text-sm text-[#0a0a0a]">
+                            {item.label}
+                          </p>
+                          <p className="font-mono text-[11px] text-[#a8a29e]">
+                            {isActive ? item.activeLabel : item.idleLabel}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -944,6 +1064,7 @@ export function CompanyMatcher({
                   onClick={handleManualEntry}
                   variant="ghost"
                   size="lg"
+                  disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                   className="w-full text-[#78716c] hover:text-[#0a0a0a]"
                 >
                   <PenLine className="w-4 h-4" />
@@ -951,6 +1072,8 @@ export function CompanyMatcher({
                 </Button>
               )}
             </motion.div>
+
+            <SourcesPanel />
           </motion.div>
         )}
 
@@ -1002,6 +1125,7 @@ export function CompanyMatcher({
                   onClick={handleManualEntry}
                   variant="primary"
                   size="lg"
+                  disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                   className="w-full"
                 >
                   <PenLine className="w-4 h-4" />
@@ -1009,6 +1133,8 @@ export function CompanyMatcher({
                 </Button>
               )}
             </div>
+
+            <SourcesPanel />
           </motion.div>
         )}
 

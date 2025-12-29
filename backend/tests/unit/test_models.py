@@ -324,3 +324,5 @@ class TestServiceCategorizerModels:
         assert parsed["classification"]["is_in_scope"] is True
 
 
+
+

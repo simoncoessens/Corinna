@@ -192,3 +192,5 @@ class TestObligationLoader:
         assert len(categories) >= 4  # Intermediary, Hosting, Platform, Marketplace, VLOP
 
 
+
+

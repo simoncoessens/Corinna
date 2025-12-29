@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Scale, AlertCircle, RotateCcw } from "lucide-react";
+import { Scale, AlertCircle, RotateCcw, Globe, ChevronDown, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
   ProgressStepper,
@@ -30,6 +30,7 @@ import type {
   CompanyProfile,
   ComplianceReport,
   ObligationAnalysis,
+  SearchSource,
 } from "@/types/api";
 
 type ResearchStep =
@@ -46,6 +47,14 @@ type ResearchStep =
 
 const PERSISTENCE_KEY = "corinna_assessment_state";
 
+const domainFromUrl = (url: string) => {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
+};
+
 export default function AssessmentPage() {
   const [currentPhase, setCurrentPhase] = useState<AssessmentPhase>("research");
   const [completedPhases, setCompletedPhases] = useState<AssessmentPhase[]>([]);
@@ -56,6 +65,8 @@ export default function AssessmentPage() {
   );
   const [researchResult, setResearchResult] =
     useState<CompanyResearchResult | null>(null);
+  const [researchSources, setResearchSources] = useState<SearchSource[]>([]);
+  const [researchSourceCount, setResearchSourceCount] = useState(0);
   const [confirmedAnswers, setConfirmedAnswers] = useState<
     Record<ResearchSection, SubQuestionAnswer[]>
   >({} as Record<ResearchSection, SubQuestionAnswer[]>);
@@ -68,6 +79,7 @@ export default function AssessmentPage() {
   const [corinnaQuestion, setCorinnaQuestion] = useState<string>("");
   const [contextMode, setContextMode] = useState<ContextMode>("general");
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [showResearchSources, setShowResearchSources] = useState(false);
 
   const persistNow = useCallback(
     (
@@ -480,6 +492,22 @@ export default function AssessmentPage() {
     }
   }, [researchStep]);
 
+  const handleResearchSourcesReady = useCallback(
+    ({ sources, totalCount }: { sources: SearchSource[]; totalCount: number }) => {
+      setResearchSources((prev) => {
+        const sameLength = prev.length === sources.length;
+        const sameOrder =
+          sameLength && prev.every((s, i) => s.url === sources[i]?.url);
+        if (sameOrder) return prev;
+        return sources;
+      });
+      setResearchSourceCount((prev) =>
+        prev === totalCount ? prev : totalCount
+      );
+    },
+    []
+  );
+
   const handleCompanySelected = useCallback(
     (company: CompanyMatch) => {
       setSelectedCompany(company);
@@ -494,6 +522,9 @@ export default function AssessmentPage() {
       setResearchStep("deep_research");
       // Persist immediately so a refresh during stream stays on deep research
       persistNow({ researchStep: "deep_research" });
+      setResearchSources([]);
+      setResearchSourceCount(0);
+      setShowResearchSources(false);
       // Clear company matcher state since we've moved past it
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("corinna_company_matcher_state");
@@ -595,12 +626,15 @@ export default function AssessmentPage() {
     setResearchStep("company_match");
     setSelectedCompany(null);
     setResearchResult(null);
+    setResearchSources([]);
+    setResearchSourceCount(0);
     setConfirmedAnswers({} as Record<ResearchSection, SubQuestionAnswer[]>);
     setError(null);
     setCurrentPhase("research");
     setCompletedPhases([]);
     setComplianceReport(null);
     setIsManualEntry(false);
+    setShowResearchSources(false);
   };
 
   const handleManualEntry = (companyName: string, country: string) => {
@@ -615,6 +649,9 @@ export default function AssessmentPage() {
       summary_long: "",
     };
     setSelectedCompany(manualCompany);
+    setResearchSources([]);
+    setResearchSourceCount(0);
+    setShowResearchSources(false);
 
     // Create empty research result for manual filling
     const emptyResult: CompanyResearchResult = {
@@ -859,6 +896,7 @@ export default function AssessmentPage() {
                         summaryLong={selectedCompany.summary_long}
                         onComplete={handleResearchComplete}
                         onError={handleResearchError}
+                        onSourcesReady={handleResearchSourcesReady}
                         onVisibleStateChange={setVisibleUiStep}
                       />
                     </motion.div>
@@ -871,6 +909,100 @@ export default function AssessmentPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                     >
+                      {researchSources.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.05 }}
+                          className="mb-6"
+                        >
+                          <div className="border border-[#e7e5e4] bg-white">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowResearchSources((prev) => !prev)
+                              }
+                              className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-[#f5f5f4] border border-[#e7e5e4] flex items-center justify-center shrink-0">
+                                  <Globe className="w-4 h-4 text-[#57534e]" />
+                                </div>
+                                <div>
+                                  <p className="font-serif text-lg text-[#0a0a0a]">
+                                    Research sources
+                                  </p>
+                                  <p className="font-mono text-[11px] text-[#78716c]">
+                                    {researchSourceCount || researchSources.length} captured in the last run
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <span className="px-3 py-1 bg-[#0a0a0a] text-white font-mono text-xs uppercase tracking-wider">
+                                  {researchSourceCount || researchSources.length}
+                                </span>
+                                <motion.div
+                                  animate={{ rotate: showResearchSources ? 180 : 0 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <ChevronDown className="w-4 h-4 text-[#0a0a0a]" />
+                                </motion.div>
+                              </div>
+                            </button>
+
+                            <AnimatePresence initial={false}>
+                              {showResearchSources && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: "auto" }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.25 }}
+                                  className="border-t border-[#e7e5e4] px-5 py-4 space-y-3"
+                                >
+                                  <p className="font-mono text-[11px] text-[#a8a29e]">
+                                    Sources are revealed after research to keep the scan focused.
+                                  </p>
+                                  <p className="font-mono text-[11px] text-[#a8a29e]">
+                                    Showing {Math.min(researchSources.length, 12)} of{" "}
+                                    {researchSourceCount || researchSources.length}
+                                  </p>
+                                  <div className="max-h-60 overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
+                                    {researchSources
+                                      .slice(-12)
+                                      .map((source) => (
+                                        <a
+                                          key={source.url}
+                                          href={source.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="py-3 flex items-start gap-3 group"
+                                        >
+                                          <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+                                            <Globe className="w-3 h-3 text-[#78716c]" />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            {source.title && (
+                                              <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5 group-hover:text-[#0a0a0a]">
+                                                {source.title}
+                                              </p>
+                                            )}
+                                            <p className="font-mono text-[11px] text-[#78716c] truncate group-hover:text-[#0a0a0a]">
+                                              {source.title
+                                                ? domainFromUrl(source.url)
+                                                : source.url}
+                                            </p>
+                                          </div>
+                                          <ExternalLink className="w-3 h-3 text-[#a8a29e] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        </a>
+                                      ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      )}
+
                       <ResearchReview
                         section={currentReviewSection}
                         answers={

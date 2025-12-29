@@ -40,10 +40,9 @@ export default function HomePage() {
         duration: 0.625,
         ease: [0.4, 0, 0.2, 1],
       }}
-      className="relative flex flex-col overflow-hidden"
+      className="relative flex min-h-[100lvh] flex-col overflow-x-hidden"
       style={{
         // Use large viewport height - stays constant even when keyboard appears
-        height: "100lvh", // Large viewport height for iOS Safari
         // Add safe area padding for devices with notches and home indicators
         paddingTop: "max(0px, env(safe-area-inset-top, 0px))",
         paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px))",
@@ -183,7 +182,7 @@ export default function HomePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 1.0 }}
-        className="block absolute bottom-0 left-0 right-0 z-10 w-full px-6 pb-4"
+        className="relative z-10 mt-auto w-full px-6 pb-4"
       >
         <div className="font-sans text-xs text-[#78716c] leading-relaxed max-w-4xl mx-auto text-center space-y-2">
           <p>

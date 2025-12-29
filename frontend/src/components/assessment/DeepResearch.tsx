@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileSearch, Check, Globe } from "lucide-react";
+import { FileSearch, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionId } from "@/services/api";
 import type {
@@ -27,6 +27,13 @@ interface DeepResearchProps {
    * Emits a snapshot of what the user can currently see in this screen.
    */
   onVisibleStateChange?: (state: ChatContext["visibleUi"]) => void;
+  /**
+   * Sends the list of gathered sources to the parent once available.
+   */
+  onSourcesReady?: (payload: {
+    sources: SearchSource[];
+    totalCount: number;
+  }) => void;
 }
 
 const API_BASE_URL =
@@ -58,16 +65,16 @@ const SOURCE_ADD_DELAY = 900; // ms between adding each source
 
 const PHASE_CONFIG = {
   research: {
-    label: "Researching",
-    description: "Gathering information from the web",
+    label: "Data collection",
+    description: "Gathering public records and company disclosures",
   },
   summarization: {
-    label: "Analyzing",
-    description: "Processing and synthesizing findings",
+    label: "Analysis",
+    description: "Interpreting services, operations, and risk signals",
   },
   finalizing: {
-    label: "Finalizing",
-    description: "Preparing your compliance report",
+    label: "Summary",
+    description: "Compiling sourced findings for review",
   },
 };
 
@@ -78,6 +85,7 @@ export function DeepResearch({
   onComplete,
   onError,
   onVisibleStateChange,
+  onSourcesReady,
 }: DeepResearchProps) {
   // Queue for incoming sources (raw from API)
   const sourceQueueRef = useRef<SearchSource[]>([]);
@@ -86,6 +94,7 @@ export function DeepResearch({
   const displayedSourcesRef = useRef<SearchSource[]>([]);
   // Total count for the header
   const [totalSourceCount, setTotalSourceCount] = useState(0);
+  const [fakeProgress, setFakeProgress] = useState(12);
 
   const [phase, setPhase] = useState<
     "research" | "summarization" | "finalizing"
@@ -181,6 +190,33 @@ export function DeepResearch({
   useEffect(() => {
     displayedSourcesRef.current = displayedSources;
   }, [displayedSources]);
+
+  useEffect(() => {
+    const target =
+      phase === "research" ? 68 : phase === "summarization" ? 88 : 97;
+    const floor =
+      phase === "research" ? 12 : phase === "summarization" ? 56 : 82;
+
+    setFakeProgress((prev) => Math.max(prev, floor));
+
+    const interval = window.setInterval(() => {
+      setFakeProgress((prev) => {
+        if (prev >= target) return prev;
+        const increment = 1.5 + Math.random() * 5;
+        return Math.min(prev + increment, target);
+      });
+    }, 4500);
+
+    return () => window.clearInterval(interval);
+  }, [phase]);
+
+  useEffect(() => {
+    if (!onSourcesReady) return;
+    onSourcesReady({
+      sources: [...displayedSourcesRef.current],
+      totalCount: totalSourceCount,
+    });
+  }, [displayedSources, totalSourceCount, onSourcesReady]);
 
   // Process queue with delay to stagger source appearances
   const processQueue = useCallback(() => {
@@ -324,6 +360,7 @@ export function DeepResearch({
     searchCountRef.current = 0;
     llmCountRef.current = 0;
     researchPhaseComplete.current = false;
+    setFakeProgress(12);
 
     // Abort any existing research
     if (controllerRef.current) {
@@ -556,91 +593,119 @@ export function DeepResearch({
 
         {/* Main card */}
         <div className="w-full border border-[#e7e5e4] bg-white">
-          {/* Sources header */}
-          <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
-              Sources analyzed
-            </span>
-            <span className="font-mono text-sm font-medium text-[#0a0a0a] tabular-nums">
-              {totalSourceCount}
-            </span>
+          <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-1 text-left">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[#78716c]">
+                Detailed research in progress
+              </span>
+              <p className="font-sans text-sm text-[#57534e]">
+                Collecting corporate records, product details, and operational
+                signals
+              </p>
+            </div>
+            <div className="px-3 py-1 bg-[#0a0a0a] text-white font-mono text-xs uppercase tracking-wider">
+              {Math.min(99, Math.max(14, Math.round(fakeProgress)))}%
+            </div>
           </div>
 
-          {/* Sources list */}
-          {/* Fixed height to avoid vertical growth as sources accumulate */}
-          <div className="h-[216px] overflow-hidden no-scrollbar">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {visibleSources.length === 0 ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="h-[216px] flex flex-col items-center justify-center overflow-hidden"
-                >
-                  <motion.div
-                    className="flex gap-1.5 mb-3"
-                    animate={{ opacity: [0.4, 1, 0.4] }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
+          <div className="px-5 py-6 space-y-5">
+            <div className="relative h-2 bg-[#f5f5f4] border border-[#e7e5e4] overflow-hidden">
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-[#0a0a0a]"
+                animate={{
+                  width: `${Math.min(99, Math.max(fakeProgress, 10))}%`,
+                }}
+                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+              />
+              <motion.div
+                className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent opacity-60"
+                animate={{ x: ["-30%", "120%"] }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </div>
+
+            <div className="grid gap-3">
+              {(
+                [
+                  {
+                    label: "Searching public records",
+                    description: "Registries, statutory filings, open-web evidence",
+                    phaseKey: "research",
+                  },
+                {
+                  label: "Analyzing services offered",
+                  description:
+                    "Mapping products, markets, and governance signals",
+                  phaseKey: "summarization",
+                },
+                {
+                  label: "Building the profile",
+                  description: "Assembling a sourced company dossier",
+                  phaseKey: "finalizing",
+                },
+                ] as const
+              ).map((item) => {
+                const phaseOrder = [
+                  "research",
+                  "summarization",
+                  "finalizing",
+                ] as const;
+                const currentIndex = phaseOrder.indexOf(phase);
+                const itemIndex = phaseOrder.indexOf(item.phaseKey);
+                const isComplete = currentIndex > itemIndex;
+                const isCurrent = currentIndex === itemIndex;
+
+                return (
+                  <div
+                    key={item.label}
+                    className={cn(
+                      "flex items-start gap-3 rounded-sm border border-transparent px-2 py-1",
+                      isCurrent ? "border-[#e7e5e4] bg-[#fafaf9]" : ""
+                    )}
                   >
-                    <div className="w-1.5 h-1.5 bg-[#0a0a0a]" />
-                    <div className="w-1.5 h-1.5 bg-[#78716c]" />
-                    <div className="w-1.5 h-1.5 bg-[#a8a29e]" />
-                  </motion.div>
-                  <span className="font-mono text-[11px] text-[#a8a29e]">
-                    Searching for sources...
-                  </span>
-                </motion.div>
-              ) : (
-                <div className="h-full overflow-y-auto overscroll-contain divide-y divide-[#f5f5f4] no-scrollbar">
-                  {visibleSources.map((source) => (
-                    <motion.div
-                      key={source.url}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{
-                        duration: 0.4,
-                        ease: [0.25, 0.1, 0.25, 1],
-                        layout: { duration: 0.3 },
-                      }}
-                      className="px-5 py-3 flex items-center gap-3"
+                    <div
+                      className={cn(
+                        "w-7 h-7 rounded-full flex items-center justify-center mt-0.5 transition-colors duration-300",
+                        isComplete || isCurrent
+                          ? "bg-[#0a0a0a]"
+                          : "bg-[#f5f5f4] border border-[#e7e5e4]"
+                      )}
                     >
-                      <div className="w-6 h-6 bg-[#f5f5f4] flex items-center justify-center shrink-0">
-                        <Globe className="w-3 h-3 text-[#78716c]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {source.title && (
-                          <p className="font-sans text-sm text-[#0a0a0a] truncate mb-0.5">
-                            {source.title}
-                          </p>
-                        )}
-                        <p className="font-mono text-[11px] text-[#78716c] truncate">
-                          {extractDomain(source.url)}
-                        </p>
-                      </div>
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{
-                          delay: 0.2,
-                          duration: 0.2,
-                          ease: "backOut",
-                        }}
-                        className="w-5 h-5 bg-[#dcfce7] flex items-center justify-center shrink-0"
-                      >
-                        <Check className="w-3 h-3 text-[#16a34a]" />
-                      </motion.div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </AnimatePresence>
+                      {isComplete ? (
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      ) : isCurrent ? (
+                        <motion.div
+                          className="w-2 h-2 bg-white rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 1.1, repeat: Infinity }}
+                        />
+                      ) : (
+                        <motion.div
+                          className="w-2 h-2 rounded-full bg-[#78716c]"
+                          animate={{
+                            scale: [1, 1.2, 1],
+                            opacity: [0.6, 1, 0.6],
+                          }}
+                          transition={{ duration: 1.2, repeat: Infinity }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-sans text-sm text-[#0a0a0a]">
+                        {item.label}
+                      </p>
+                      <p className="font-mono text-[11px] text-[#a8a29e]">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Phase indicators footer */}
