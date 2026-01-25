@@ -47,3 +47,10 @@ dist/
 # Database (SQLite for local dev)
 backend/data/*.db
 backend/data/*.sqlite
+
+# Video files
+video/
+*.mov
+*.mp4
+*.avi
+*.mkv

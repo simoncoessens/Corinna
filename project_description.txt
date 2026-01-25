@@ -1,0 +1,96 @@
+CORINNA - DSA Self-Assessment Tool
+===================================
+
+What is Corinna?
+----------------
+Corinna is an intelligent assistant that helps companies understand their legal obligations under the European Union's Digital Services Act (DSA). The DSA is a comprehensive regulation that governs how digital services operate within Europe, but understanding which rules apply to your specific business can be overwhelming. Corinna makes this process simple, fast, and accessible.
+
+
+The Problem We Solve
+--------------------
+The Digital Services Act is complex. It contains different sets of rules for different types of digital services - from basic internet providers to social media giants. Companies often struggle to answer fundamental questions:
+
+- Does the DSA even apply to my business?
+- What category does my service fall into?
+- Which specific obligations do I need to comply with?
+- What concrete steps should I take?
+
+Traditionally, answering these questions required expensive legal consultations, weeks of research, and specialized expertise that many organizations simply don't have.
+
+
+How Corinna Works
+-----------------
+Corinna transforms what used to be a complex legal analysis into a straightforward conversation:
+
+1. You provide your company name
+2. Corinna researches your company automatically using publicly available information
+3. You review and confirm the findings
+4. Corinna classifies your service and identifies which DSA rules apply
+5. You receive a clear report with specific action items
+
+The entire process takes minutes instead of weeks, and you can ask follow-up questions at any point to better understand your obligations.
+
+
+What You Get
+------------
+At the end of the assessment, you receive:
+
+- A clear determination of whether the DSA applies to your business
+- Your service category under the DSA framework
+- A complete list of applicable obligations with plain-language explanations
+- Specific action items tailored to your situation
+- A downloadable PDF report for your records
+- The ability to ask questions about any aspect of your compliance requirements
+
+
+Who Benefits from Corinna?
+--------------------------
+
+Digital Service Providers
+Any company offering online services in the EU - whether you're an e-commerce marketplace, a content platform, a cloud hosting provider, or a search engine. If you operate digitally and serve European users, the DSA likely affects you.
+
+Small and Medium Enterprises
+SMEs often lack dedicated legal departments to navigate complex regulations. Corinna provides enterprise-level compliance guidance at a fraction of the traditional cost.
+
+Startups and New Ventures
+Understanding regulatory requirements early helps avoid costly surprises later. Corinna helps founders and entrepreneurs plan for compliance from the start.
+
+Compliance Teams
+Internal compliance officers can use Corinna as a first-pass tool to identify relevant obligations, then focus their detailed work where it matters most.
+
+Legal Professionals
+Lawyers and consultants can use Corinna to accelerate their initial analysis and provide clients with preliminary guidance more efficiently.
+
+
+Key Features
+------------
+
+Automated Research
+Corinna gathers relevant information about your company automatically, saving you from filling out lengthy questionnaires.
+
+Transparent Reasoning
+Every finding is linked to its source. You can see exactly where Corinna found its information and verify it yourself.
+
+Interactive Q&A
+Have questions about a specific obligation? Ask Corinna directly. The assistant draws on the official DSA text to give you accurate, citation-backed answers.
+
+Human Validation
+You always have the final say. Corinna shows you what it found and lets you confirm, modify, or override any information before proceeding.
+
+Exportable Reports
+Download your complete assessment as a professional PDF document suitable for internal records, board presentations, or discussions with legal counsel.
+
+
+What Corinna Is Not
+-------------------
+Corinna is an informational tool, not a lawyer. The assessments provided are meant to help you understand your regulatory landscape and prepare for compliance, but they do not constitute legal advice. For binding legal opinions or complex compliance matters, you should consult with qualified legal professionals.
+
+
+Project Background
+------------------
+Corinna was developed as part of the Self-Assessment Network Impact Program (SNIP) at the Università degli Studi di Bari, combining expertise in artificial intelligence with specialized knowledge in EU digital regulation. The project bridges the gap between complex legal requirements and practical business needs, making regulatory compliance more accessible to organizations of all sizes.
+
+
+Get Started
+-----------
+Simply enter your company name and let Corinna guide you through the assessment. Within minutes, you'll have a clear picture of your DSA obligations and the concrete steps you need to take.
