@@ -11,6 +11,7 @@ import {
   ResearchReview,
   ManualDataEntry,
   ChatPopup,
+  ChatSidebar,
   ServiceClassification,
   ComplianceDashboard,
   type AssessmentPhase,
@@ -78,6 +79,7 @@ export default function AssessmentPage() {
     useState<ChatContext["visibleUi"]>();
   const [corinnaQuestion, setCorinnaQuestion] = useState<string>("");
   const [contextMode, setContextMode] = useState<ContextMode>("general");
+  const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [showResearchSources, setShowResearchSources] = useState(false);
 
@@ -827,17 +829,17 @@ export default function AssessmentPage() {
           paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        {/* Left Panel - Main Flow */}
+        {/* Main Panel - grows to fill available space */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex-1 flex flex-col px-6 pt-8 pb-6 overflow-y-auto"
+          className="flex-1 flex flex-col px-6 pt-8 pb-6 overflow-y-auto min-w-0"
         >
           <div
             className={`w-full mx-auto ${
               currentPhase === "report"
-                ? "max-w-6xl"
+                ? "max-w-5xl"
                 : currentPhase === "classify"
                 ? "max-w-4xl"
                 : "max-w-2xl"
@@ -1163,15 +1165,37 @@ export default function AssessmentPage() {
             </AnimatePresence>
           </div>
         </motion.div>
+
+        {/* Chat Sidebar - Only visible in report phase */}
+        {currentPhase === "report" && (
+          <div
+            className="hidden lg:block shrink-0"
+            style={{
+              width: isChatCollapsed ? 56 : "30%",
+              transition: "width 0.25s ease-out"
+            }}
+          >
+            <ChatSidebar
+              context={chatContext}
+              initialQuestion={corinnaQuestion}
+              onInitialQuestionSent={handleCorinnaQuestionSent}
+              contextMode={contextMode}
+              isCollapsed={isChatCollapsed}
+              onToggleCollapse={() => setIsChatCollapsed(!isChatCollapsed)}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Floating Chat Popup */}
-      <ChatPopup
-        context={chatContext}
-        initialQuestion={corinnaQuestion}
-        onInitialQuestionSent={handleCorinnaQuestionSent}
-        contextMode={contextMode}
-      />
+      {/* Floating Chat Popup - Visible when NOT in report phase, or on mobile/tablet in report phase */}
+      <div className={currentPhase === "report" ? "lg:hidden" : ""}>
+        <ChatPopup
+          context={chatContext}
+          initialQuestion={corinnaQuestion}
+          onInitialQuestionSent={handleCorinnaQuestionSent}
+          contextMode={contextMode}
+        />
+      </div>
     </motion.main>
   );
 }

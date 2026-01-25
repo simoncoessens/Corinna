@@ -492,3 +492,123 @@ h1, h2, h3, h4, h5, h6 {
 .markdown-content li::marker {
   color: #0a0a0a !important;
 }
+
+/* Inline markdown styling (for rendering markdown in UI components) */
+.markdown-inline {
+  display: inline;
+}
+
+.markdown-inline > p {
+  display: inline;
+}
+
+.markdown-inline > p:first-child {
+  margin-top: 0;
+}
+
+.markdown-inline > p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-inline strong {
+  font-weight: 600;
+}
+
+.markdown-inline em {
+  font-style: italic;
+}
+
+.markdown-inline code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9em;
+  background: var(--color-parchment);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.markdown-inline a {
+  color: var(--color-eu-blue);
+  text-decoration: underline;
+  text-decoration-color: var(--color-eu-blue);
+  text-underline-offset: 2px;
+}
+
+.markdown-inline a:hover {
+  text-decoration-color: var(--color-eu-blue-light);
+}
+
+.markdown-inline ul,
+.markdown-inline ol {
+  display: block;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.markdown-inline ul {
+  list-style-type: disc;
+}
+
+.markdown-inline ol {
+  list-style-type: decimal;
+}
+
+.markdown-inline li {
+  display: list-item;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* =============================================================================
+   DSA Article Viewer Styling
+   ============================================================================= */
+
+.article-content {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-ink);
+}
+
+.article-content .article-paragraph {
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+  position: relative;
+}
+
+.article-content .paragraph-number {
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-eu-blue);
+}
+
+.article-content .paragraph-text {
+  color: var(--color-ink);
+}
+
+.article-content .article-text {
+  margin-bottom: 0.75rem;
+  color: var(--color-stone);
+}
+
+/* Sub-points styling (a, b, c, etc.) */
+.article-content .article-subpoint {
+  margin: 0.5rem 0 0.5rem 3rem;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.article-content .subpoint-letter {
+  position: absolute;
+  left: 0;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--color-stone);
+}
+
+.article-content .subpoint-text {
+  color: var(--color-ink);
+}

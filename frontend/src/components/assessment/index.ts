@@ -9,5 +9,7 @@ export { ResearchReview } from "./ResearchReview";
 export { ManualDataEntry } from "./ManualDataEntry";
 export { Chatbot } from "./Chatbot";
 export { ChatPopup, type ChatPhase, type ChatContext, type ContextMode } from "./ChatPopup";
+export { ChatSidebar } from "./ChatSidebar";
 export { ServiceClassification } from "./ServiceClassification";
 export { ComplianceDashboard } from "./ComplianceDashboard";
+export { ArticleViewer } from "./ArticleViewer";

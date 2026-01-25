@@ -9,6 +9,7 @@ import {
   Building2,
   Download,
   ChevronRight,
+  ChevronDown,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -29,12 +30,45 @@ import {
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui";
+import { ArticleViewer } from "./ArticleViewer";
 import type {
   ComplianceReport,
   ObligationAnalysis,
   CompanyProfile,
 } from "@/types/api";
 import type { ChatContext } from "./ChatPopup";
+
+// Configure marked for inline parsing (no wrapping <p> tags for single lines)
+marked.use({
+  breaks: true,
+});
+
+/**
+ * Renders markdown text to sanitized HTML
+ */
+function renderMarkdown(text: string | undefined | null): string {
+  if (!text) return "";
+  return DOMPurify.sanitize(marked.parse(text, { async: false }) as string);
+}
+
+/**
+ * Component for rendering markdown text inline
+ */
+function MarkdownText({
+  children,
+  className = "",
+}: {
+  children: string | undefined | null;
+  className?: string;
+}) {
+  const html = useMemo(() => renderMarkdown(children), [children]);
+  return (
+    <span
+      className={`markdown-inline ${className}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
 interface ComplianceDashboardProps {
   report: ComplianceReport;
@@ -89,6 +123,7 @@ export function ComplianceDashboard({
   const [obligationsFilter, setObligationsFilter] = useState<
     "all" | "applicable" | "not-applicable"
   >("applicable");
+  const [viewingArticle, setViewingArticle] = useState<string | null>(null);
 
   const applicableObligations = useMemo(
     () => report.obligations.filter((o) => o.applies),
@@ -159,40 +194,38 @@ export function ComplianceDashboard({
   return (
     <div className="w-full">
       {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 bg-[#f5f5f4] border border-[#e7e5e4] flex items-center justify-center shrink-0">
-          <FileText className="w-6 h-6 text-[#57534e]" strokeWidth={1.5} />
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+            Compliance Report
+          </span>
+          <span className="text-[#d4d4d4]">·</span>
+          <span className="font-mono text-[10px] text-[#b8860b] uppercase tracking-wider px-2 py-0.5 bg-[#b8860b]/10 border border-[#b8860b]/20">
+            {report.classification.service_classification.service_category}
+          </span>
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-1">
-            <h2 className="font-serif text-xl text-[#0a0a0a]">
-              Compliance Report
-            </h2>
-            <span className="font-mono text-[10px] text-[#b8860b] uppercase tracking-wider px-2 py-0.5 bg-[#b8860b]/10 border border-[#b8860b]/20">
-              {report.classification.service_classification.service_category}
-            </span>
-          </div>
-          <p className="font-sans text-sm text-[#57534e]">
-            {report.company_name} · {applicableObligations.length} applicable
-            obligations
-          </p>
-        </div>
+        <h2 className="font-serif text-2xl text-[#0a0a0a] mb-2 text-left">
+          {report.company_name}
+        </h2>
+        <p className="font-sans text-sm text-[#57534e] text-left">
+          {applicableObligations.length} applicable obligation{applicableObligations.length !== 1 ? 's' : ''} identified under the Digital Services Act
+        </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[#e7e5e4]">
+      <div className="flex gap-6 mb-6 border-b border-[#e7e5e4]">
         {tabConfig.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-all cursor-pointer whitespace-nowrap border-b-2 -mb-px ${
+            className={`flex items-center gap-2 px-1 py-3 text-sm transition-all cursor-pointer whitespace-nowrap border-b-2 -mb-px ${
               activeTab === tab.id
-                ? "border-[#0a0a0a] text-[#0a0a0a]"
-                : "border-transparent text-[#78716c] hover:text-[#0a0a0a]"
+                ? "border-[#0a0a0a] text-[#0a0a0a] font-medium"
+                : "border-transparent text-[#78716c] hover:text-[#57534e]"
             }`}
           >
             {tab.icon}
-            {tab.label}
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -220,6 +253,7 @@ export function ComplianceDashboard({
               filter={obligationsFilter}
               onFilterChange={setObligationsFilter}
               onAskCorinna={onAskCorinna}
+              onViewArticle={setViewingArticle}
             />
           )}
           {activeTab === "company" && (
@@ -234,6 +268,13 @@ export function ComplianceDashboard({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Article Viewer Modal */}
+      <ArticleViewer
+        articleNumber={viewingArticle || ""}
+        isOpen={viewingArticle !== null}
+        onClose={() => setViewingArticle(null)}
+      />
     </div>
   );
 }
@@ -308,29 +349,29 @@ function OverviewTab({
       </div>
 
       {/* Executive Summary */}
-      <div className="bg-white border border-[#e7e5e4] p-5">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="bg-white border border-[#e7e5e4] p-6">
+        <div className="flex items-center gap-2.5 mb-4">
           <Shield className="w-4 h-4 text-[#57534e]" />
           <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
             Executive Summary
           </span>
         </div>
         <div
-          className="prose prose-sm max-w-none text-[#57534e]"
+          className="prose prose-sm max-w-none text-[#57534e] text-left leading-relaxed [&>p]:mb-3 [&>p:last-child]:mb-0 [&>ul]:text-left [&>ul]:pl-4 [&>ol]:text-left [&>ol]:pl-4"
           dangerouslySetInnerHTML={{ __html: summaryHtml }}
         />
       </div>
 
       {/* Key Obligations Preview */}
       <div className="bg-white border border-[#e7e5e4]">
-        <div className="px-5 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-6 py-4 border-b border-[#e7e5e4] bg-[#fafaf9] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
             <Gavel className="w-4 h-4 text-[#57534e]" />
             <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
               Key Obligations
             </span>
           </div>
-          <span className="font-mono text-xs text-[#57534e]">
+          <span className="font-mono text-[11px] text-[#57534e]">
             {applicableCount} applicable
           </span>
         </div>
@@ -342,34 +383,34 @@ function OverviewTab({
               <button
                 key={obligation.article}
                 onClick={() => onViewObligation(obligation)}
-                className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-[#fafaf9] transition-colors cursor-pointer text-left"
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#fafaf9] transition-colors cursor-pointer text-left group"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-[#003399]/5 border border-[#003399]/10 flex items-center justify-center">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-[#003399]/5 border border-[#003399]/10 flex items-center justify-center shrink-0">
                     <span className="font-mono text-xs text-[#003399]">
                       {obligation.article}
                     </span>
                   </div>
-                  <div>
-                    <h3 className="font-sans text-sm font-medium text-[#0a0a0a]">
+                  <div className="text-left">
+                    <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-0.5 text-left">
                       {obligation.title}
                     </h3>
-                    <p className="text-xs text-[#78716c] line-clamp-1 max-w-md">
-                      {obligation.implications}
-                    </p>
+                    <div className="text-xs text-[#78716c] line-clamp-1 max-w-lg text-left [&>p]:m-0 [&_strong]:font-semibold [&_strong]:text-[#57534e]">
+                      <MarkdownText>{obligation.implications}</MarkdownText>
+                    </div>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#a8a29e]" />
+                <ChevronRight className="w-4 h-4 text-[#a8a29e] group-hover:text-[#57534e] transition-colors shrink-0" />
               </button>
             ))}
         </div>
         {applicableCount > 5 && (
-          <div className="px-5 py-3 border-t border-[#e7e5e4]">
+          <div className="px-6 py-3 border-t border-[#e7e5e4] text-left">
             <button
               onClick={() =>
                 onViewObligation(report.obligations.find((o) => o.applies)!)
               }
-              className="font-mono text-[10px] text-[#003399] hover:underline cursor-pointer uppercase tracking-wider"
+              className="font-mono text-[11px] text-[#003399] hover:underline cursor-pointer tracking-wide"
             >
               View all {applicableCount} obligations →
             </button>
@@ -396,28 +437,37 @@ function SummaryCard({
   status,
   subtitle,
 }: SummaryCardProps) {
-  const statusBadgeColors = {
-    success: "bg-[#dcfce7] text-[#16a34a]",
-    error: "bg-[#fee2e2] text-[#dc2626]",
-    warning: "bg-[#b8860b]/10 text-[#b8860b]",
-    neutral: "bg-[#f5f5f4] text-[#57534e]",
+  const statusColors = {
+    success: "text-[#16a34a]",
+    error: "text-[#dc2626]",
+    warning: "text-[#b8860b]",
+    neutral: "text-[#0a0a0a]",
+  };
+
+  const statusBgColors = {
+    success: "bg-[#dcfce7]",
+    error: "bg-[#fee2e2]",
+    warning: "bg-[#b8860b]/10",
+    neutral: "bg-[#f5f5f4]",
   };
 
   return (
-    <div className="bg-white border border-[#e7e5e4] p-4">
-      <div className="flex items-center gap-2 text-[#78716c] mb-3">
+    <div className="bg-white border border-[#e7e5e4] p-5">
+      <div className="flex items-center gap-2.5 text-[#78716c] mb-4">
         <div className="w-8 h-8 bg-[#f5f5f4] flex items-center justify-center">
           {icon}
         </div>
-        <span className="text-sm font-medium text-[#57534e]">{title}</span>
+        <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
+          {title}
+        </span>
       </div>
-      <div
-        className={`inline-block px-2.5 py-1 text-sm font-medium mb-2 ${statusBadgeColors[status]}`}
-      >
-        {value}
-      </div>
-      <div className="font-mono text-[10px] text-[#a8a29e] uppercase tracking-wider">
-        {subtitle}
+      <div className="text-left">
+        <div className={`text-lg font-medium mb-1 ${statusColors[status]}`}>
+          {value}
+        </div>
+        <div className="font-mono text-[10px] text-[#a8a29e] uppercase tracking-wider">
+          {subtitle}
+        </div>
       </div>
     </div>
   );
@@ -431,6 +481,7 @@ interface ObligationsTabProps {
   filter: "all" | "applicable" | "not-applicable";
   onFilterChange: (f: "all" | "applicable" | "not-applicable") => void;
   onAskCorinna?: (obligation: ObligationAnalysis) => void;
+  onViewArticle?: (articleNumber: string) => void;
 }
 
 function ObligationsTab({
@@ -440,6 +491,7 @@ function ObligationsTab({
   filter,
   onFilterChange,
   onAskCorinna,
+  onViewArticle,
 }: ObligationsTabProps) {
   const filteredObligations = useMemo(() => {
     switch (filter) {
@@ -457,69 +509,70 @@ function ObligationsTab({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex gap-6"
+      className="space-y-4"
     >
-      {/* Obligations List */}
-      <div className="flex-1">
-        {/* Filters */}
-        <div className="flex gap-1 mb-4 p-1 bg-[#f5f5f4] border border-[#e7e5e4] w-fit">
-          {[
-            { id: "all" as const, label: "All", count: obligations.length },
-            {
-              id: "applicable" as const,
-              label: "Applicable",
-              count: obligations.filter((o) => o.applies).length,
-            },
-            {
-              id: "not-applicable" as const,
-              label: "Not Applicable",
-              count: obligations.filter((o) => !o.applies).length,
-            },
-          ].map((f) => (
-            <button
-              key={f.id}
-              onClick={() => onFilterChange(f.id)}
-              className={`px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors cursor-pointer ${
-                filter === f.id
-                  ? "bg-white text-[#0a0a0a] shadow-sm"
-                  : "text-[#78716c] hover:text-[#0a0a0a]"
-              }`}
-            >
-              {f.label} ({f.count})
-            </button>
-          ))}
-        </div>
-
-        {/* Obligations Grid */}
-        <div className="space-y-3">
-          {filteredObligations.map((obligation) => (
-            <ObligationCard
-              key={obligation.article}
-              obligation={obligation}
-              isSelected={selectedObligation?.article === obligation.article}
-              onClick={() => onSelectObligation(obligation)}
-            />
-          ))}
-        </div>
+      {/* Filters */}
+      <div className="flex gap-1.5 p-1.5 bg-[#f5f5f4] border border-[#e7e5e4] w-fit">
+        {[
+          { id: "all" as const, label: "All", count: obligations.length },
+          {
+            id: "applicable" as const,
+            label: "Applicable",
+            count: obligations.filter((o) => o.applies).length,
+          },
+          {
+            id: "not-applicable" as const,
+            label: "Not Applicable",
+            count: obligations.filter((o) => !o.applies).length,
+          },
+        ].map((f) => (
+          <button
+            key={f.id}
+            onClick={() => onFilterChange(f.id)}
+            className={`px-4 py-2 font-mono text-[11px] uppercase tracking-wide transition-all cursor-pointer ${
+              filter === f.id
+                ? "bg-white text-[#0a0a0a] shadow-sm border border-[#e7e5e4]"
+                : "text-[#78716c] hover:text-[#0a0a0a] border border-transparent"
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
       </div>
 
-      {/* Obligation Detail Panel */}
-      <AnimatePresence>
-        {selectedObligation && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="w-96 shrink-0"
-          >
-            <ObligationDetail
-              obligation={selectedObligation}
-              onClose={() => onSelectObligation(null)}
-              onAskCorinna={onAskCorinna}
+      {/* Obligations List - Accordion Style */}
+      <div className="space-y-2">
+        {filteredObligations.map((obligation) => (
+          <div key={obligation.article}>
+            <ObligationCard
+              obligation={obligation}
+              isSelected={selectedObligation?.article === obligation.article}
+              onClick={() => onSelectObligation(
+                selectedObligation?.article === obligation.article ? null : obligation
+              )}
             />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {/* Expandable Detail */}
+            <AnimatePresence>
+              {selectedObligation?.article === obligation.article && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <ObligationDetail
+                    obligation={obligation}
+                    onClose={() => onSelectObligation(null)}
+                    onAskCorinna={onAskCorinna}
+                    onViewArticle={onViewArticle}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -539,47 +592,52 @@ function ObligationCard({
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left bg-white border p-4 transition-all cursor-pointer ${
+      className={`w-full text-left bg-white border transition-all cursor-pointer group ${
         isSelected
-          ? "border-[#0a0a0a]"
+          ? "border-[#0a0a0a] border-b-transparent"
           : "border-[#e7e5e4] hover:border-[#a8a29e]"
       }`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4 p-4">
         <div
           className={`w-10 h-10 flex items-center justify-center shrink-0 ${
             obligation.applies
               ? "bg-[#003399]/5 border border-[#003399]/10"
-              : "bg-[#f5f5f4]"
+              : "bg-[#f5f5f4] border border-[#e7e5e4]"
           }`}
         >
           <span
-            className={`font-mono text-[11px] ${
+            className={`font-mono text-xs ${
               obligation.applies ? "text-[#003399]" : "text-[#a8a29e]"
             }`}
           >
             {obligation.article}
           </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-sans text-sm font-medium text-[#0a0a0a] truncate">
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="font-sans text-sm font-medium text-[#0a0a0a] leading-snug">
               {obligation.title}
             </h3>
-            {obligation.applies ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#16a34a] shrink-0" />
-            ) : (
-              <XCircle className="w-3.5 h-3.5 text-[#a8a29e] shrink-0" />
-            )}
-          </div>
-          <p className="text-xs text-[#78716c] line-clamp-2">
-            {obligation.implications}
-          </p>
-          {obligation.applies && obligation.action_items.length > 0 && (
-            <div className="flex items-center gap-1 mt-2 font-mono text-[10px] text-[#b8860b]">
-              <ListChecks className="w-3 h-3" />
-              {obligation.action_items.length} action items
+            <div className="flex items-center gap-2 shrink-0">
+              {obligation.applies ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#16a34a] bg-[#dcfce7] px-2 py-0.5 uppercase tracking-wide">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Applies
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#78716c] bg-[#f5f5f4] px-2 py-0.5 uppercase tracking-wide">
+                  <XCircle className="w-3 h-3" />
+                  N/A
+                </span>
+              )}
+              <ChevronDown className={`w-4 h-4 text-[#78716c] transition-transform ${isSelected ? "rotate-180" : ""}`} />
             </div>
+          </div>
+          {!isSelected && (
+            <p className="text-xs text-[#78716c] mt-1.5 line-clamp-1">
+              {obligation.implications.replace(/[*_#]/g, '').substring(0, 120)}...
+            </p>
           )}
         </div>
       </div>
@@ -590,109 +648,73 @@ function ObligationCard({
 // Obligation Detail Component
 interface ObligationDetailProps {
   obligation: ObligationAnalysis;
-  onClose: () => void;
+  onClose?: () => void;
   onAskCorinna?: (obligation: ObligationAnalysis) => void;
+  onViewArticle?: (articleNumber: string) => void;
 }
 
 function ObligationDetail({
   obligation,
-  onClose,
   onAskCorinna,
+  onViewArticle,
 }: ObligationDetailProps) {
   return (
-    <div className="bg-white border border-[#e7e5e4] sticky top-6">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-[#e7e5e4] bg-[#fafaf9]">
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-[10px] text-[#003399] uppercase tracking-wider bg-[#003399]/5 px-2 py-0.5">
-            Article {obligation.article}
-          </span>
-          <div className="flex items-center gap-2">
-            {onAskCorinna && (
-              <button
-                onClick={() => onAskCorinna(obligation)}
-                className="px-2 py-1 flex items-center gap-1.5 text-[#78716c] hover:text-[#003399] transition-colors"
-                title="Ask Corinna about this obligation"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span className="font-sans text-xs whitespace-nowrap">
-                  Ask Corinna
-                </span>
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="text-[#78716c] hover:text-[#0a0a0a] cursor-pointer text-lg leading-none"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-        <h3 className="font-sans text-sm font-medium text-[#0a0a0a]">
-          {obligation.title}
-        </h3>
-        <div className="flex items-center gap-2 mt-2">
-          {obligation.applies ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#16a34a] bg-[#dcfce7] px-2 py-0.5">
-              <CheckCircle2 className="w-2.5 h-2.5" />
-              Applies
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#78716c] bg-[#f5f5f4] px-2 py-0.5">
-              <XCircle className="w-2.5 h-2.5" />
-              Does Not Apply
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-4 space-y-4 max-h-[50vh] overflow-y-auto">
+    <div className="bg-[#fafaf9] border-x border-b border-[#e7e5e4] -mt-px">
+      {/* Content - Two columns */}
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Implications */}
-        <div>
+        <div className="text-left">
           <h4 className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider mb-2">
             Implications
           </h4>
-          <p className="text-xs text-[#57534e] leading-relaxed">
-            {obligation.implications}
-          </p>
+          <div className="text-sm text-[#57534e] leading-relaxed [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-[#0a0a0a]">
+            <MarkdownText>{obligation.implications}</MarkdownText>
+          </div>
         </div>
 
         {/* Action Items */}
         {obligation.applies && obligation.action_items.length > 0 && (
-          <div>
+          <div className="text-left">
             <h4 className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider mb-2">
               Required Actions
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {obligation.action_items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-start gap-2 p-2 bg-[#fafaf9] border border-[#e7e5e4]"
+                  className="flex items-start gap-2 text-sm"
                 >
-                  <div className="w-4 h-4 bg-[#b8860b]/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <span className="text-[9px] font-medium text-[#b8860b]">
-                      {idx + 1}
-                    </span>
+                  <span className="text-[10px] font-medium text-[#b8860b] mt-0.5">
+                    {idx + 1}.
+                  </span>
+                  <div className="text-[#57534e] leading-relaxed [&>p]:m-0 [&_strong]:font-semibold [&_strong]:text-[#0a0a0a]">
+                    <MarkdownText>{item}</MarkdownText>
                   </div>
-                  <p className="text-xs text-[#57534e]">{item}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
+      </div>
 
-        {/* External Link */}
-        <a
-          href={`https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2065`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 font-mono text-[10px] text-[#003399] hover:underline uppercase tracking-wider"
+      {/* Actions bar */}
+      <div className="px-4 py-2 border-t border-[#e7e5e4] flex items-center gap-3">
+        <button
+          onClick={() => onViewArticle?.(obligation.article)}
+          className="px-2 py-1 flex items-center gap-1.5 text-[#003399] hover:bg-[#003399]/10 transition-colors text-xs"
         >
-          <BookOpen className="w-3 h-3" />
-          View in EUR-Lex
-          <ExternalLink className="w-2.5 h-2.5" />
-        </a>
+          <BookOpen className="w-3.5 h-3.5" />
+          View Full Article
+        </button>
+        {onAskCorinna && (
+          <button
+            onClick={() => onAskCorinna(obligation)}
+            className="px-2 py-1 flex items-center gap-1.5 text-[#78716c] hover:text-[#003399] transition-colors text-xs"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Ask Corinna
+          </button>
+        )}
       </div>
     </div>
   );
@@ -710,25 +732,26 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      className="grid grid-cols-1 lg:grid-cols-2 gap-5"
     >
       {/* Company Profile */}
-      <div className="bg-white border border-[#e7e5e4] p-5">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="bg-white border border-[#e7e5e4] p-6">
+        <div className="flex items-center gap-2.5 mb-5">
           <Building2 className="w-4 h-4 text-[#57534e]" />
           <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
             Company Profile
           </span>
         </div>
-        <dl className="space-y-3">
+        <dl className="space-y-1">
           <InfoRow label="Company Name" value={report.company_name} />
           {companyProfile.description && (
-            <InfoRow label="Description" value={companyProfile.description} />
+            <InfoRow label="Description" value={companyProfile.description} markdown />
           )}
           {companyProfile.services && companyProfile.services.length > 0 && (
             <InfoRow
               label="Services"
               value={companyProfile.services.join(", ")}
+              markdown
             />
           )}
           {companyProfile.monthly_active_users_eu && (
@@ -741,14 +764,14 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
       </div>
 
       {/* DSA Classification */}
-      <div className="bg-white border border-[#e7e5e4] p-5">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="bg-white border border-[#e7e5e4] p-6">
+        <div className="flex items-center gap-2.5 mb-5">
           <Scale className="w-4 h-4 text-[#57534e]" />
           <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
             DSA Classification
           </span>
         </div>
-        <dl className="space-y-3">
+        <dl className="space-y-1">
           <InfoRow
             label="Territorial Scope"
             value={
@@ -815,27 +838,27 @@ function CompanyTab({ report, companyProfile }: CompanyTabProps) {
           />
         </dl>
         {report.classification.size_designation.reasoning && (
-          <div className="mt-4 pt-4 border-t border-[#e7e5e4]">
-            <p className="text-xs text-[#57534e] leading-relaxed">
-              {report.classification.size_designation.reasoning}
-            </p>
+          <div className="mt-5 pt-5 border-t border-[#e7e5e4]">
+            <div className="text-sm text-[#57534e] leading-relaxed text-left [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-[#0a0a0a]">
+              <MarkdownText>{report.classification.size_designation.reasoning}</MarkdownText>
+            </div>
           </div>
         )}
       </div>
 
       {/* Research Findings */}
       {companyProfile.research_answers && (
-        <div className="lg:col-span-2 bg-white border border-[#e7e5e4] p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="lg:col-span-2 bg-white border border-[#e7e5e4] p-6">
+          <div className="flex items-center gap-2.5 mb-5">
             <FileText className="w-4 h-4 text-[#57534e]" />
             <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
               Research Findings
             </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {companyProfile.research_answers.geographical_scope && (
               <ResearchSection
-                title="Territorial scope"
+                title="Territorial Scope"
                 answers={companyProfile.research_answers.geographical_scope}
               />
             )}
@@ -863,18 +886,21 @@ interface InfoRowProps {
   label: string;
   value: string;
   highlight?: boolean;
+  markdown?: boolean;
 }
 
-function InfoRow({ label, value, highlight }: InfoRowProps) {
+function InfoRow({ label, value, highlight, markdown }: InfoRowProps) {
   return (
-    <div className="flex justify-between items-start py-2 border-b border-[#f5f5f4] last:border-b-0">
-      <dt className="text-xs text-[#78716c]">{label}</dt>
+    <div className="py-2.5 border-b border-[#f5f5f4] last:border-b-0">
+      <dt className="text-[11px] text-[#78716c] uppercase tracking-wide mb-1">
+        {label}
+      </dt>
       <dd
-        className={`text-xs text-right max-w-[60%] ${
+        className={`text-sm text-left ${
           highlight ? "text-[#b8860b] font-medium" : "text-[#0a0a0a]"
-        }`}
+        } ${markdown ? "[&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-semibold" : ""}`}
       >
-        {value}
+        {markdown ? <MarkdownText>{value}</MarkdownText> : value}
       </dd>
     </div>
   );
@@ -888,17 +914,19 @@ interface ResearchSectionProps {
 
 function ResearchSection({ title, answers }: ResearchSectionProps) {
   return (
-    <div>
-      <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-3">
+    <div className="text-left">
+      <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-4 text-left">
         {title}
       </h3>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {answers.map((a, idx) => (
-          <div key={idx}>
-            <div className="text-xs text-[#78716c] mb-1">{a.question}</div>
-            <div className="text-xs text-[#0a0a0a]">{a.answer}</div>
+          <div key={idx} className="text-left">
+            <div className="text-xs text-[#78716c] mb-1.5 text-left">{a.question}</div>
+            <div className="text-sm text-[#0a0a0a] text-left leading-relaxed [&>p]:mb-2 [&>p:last-child]:mb-0 [&_strong]:font-semibold">
+              <MarkdownText>{a.answer}</MarkdownText>
+            </div>
             <div
-              className={`font-mono text-[10px] mt-1 ${
+              className={`font-mono text-[10px] mt-1.5 uppercase tracking-wide ${
                 a.confidence === "High"
                   ? "text-[#16a34a]"
                   : a.confidence === "Medium"
@@ -972,7 +1000,7 @@ function DownloadTab({ report }: DownloadTabProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="max-w-xl"
+      className="max-w-2xl"
     >
       <div className="mb-6">
         <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
@@ -980,19 +1008,19 @@ function DownloadTab({ report }: DownloadTabProps) {
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* PDF Download */}
-        <div className="bg-white border border-[#e7e5e4] p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+        <div className="bg-white border border-[#e7e5e4] p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 bg-[#f5f5f4] flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5 text-[#57534e]" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1">
+            <div className="flex-1 text-left">
+              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1.5 text-left">
                 PDF Report
               </h3>
-              <p className="text-xs text-[#78716c] mb-3">
-                Professional compliance report formatted for printing
+              <p className="text-sm text-[#78716c] mb-4 text-left leading-relaxed">
+                Professional compliance report formatted for printing and sharing
               </p>
               <Button
                 variant="primary"
@@ -1008,16 +1036,16 @@ function DownloadTab({ report }: DownloadTabProps) {
         </div>
 
         {/* JSON Download */}
-        <div className="bg-white border border-[#e7e5e4] p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-[#f5f5f4] flex items-center justify-center shrink-0">
+        <div className="bg-white border border-[#e7e5e4] p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-11 h-11 bg-[#f5f5f4] flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5 text-[#57534e]" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1">
+            <div className="flex-1 text-left">
+              <h3 className="font-sans text-sm font-medium text-[#0a0a0a] mb-1.5 text-left">
                 JSON Data
               </h3>
-              <p className="text-xs text-[#78716c] mb-3">
+              <p className="text-sm text-[#78716c] mb-4 text-left leading-relaxed">
                 Machine-readable format for system integration
               </p>
               <div className="flex gap-2">
@@ -1048,13 +1076,13 @@ function DownloadTab({ report }: DownloadTabProps) {
         </div>
 
         {/* Report Preview */}
-        <div className="bg-[#f5f5f4] border border-[#e7e5e4] p-4">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="bg-[#fafaf9] border border-[#e7e5e4] p-5">
+          <div className="flex items-center gap-2.5 mb-4">
             <span className="font-mono text-[10px] text-[#78716c] uppercase tracking-wider">
               Data Preview
             </span>
           </div>
-          <pre className="text-[10px] text-[#57534e] overflow-x-auto max-h-48 font-mono">
+          <pre className="text-[11px] text-[#57534e] overflow-x-auto max-h-48 font-mono text-left leading-relaxed">
             {JSON.stringify(report, null, 2)}
           </pre>
         </div>
