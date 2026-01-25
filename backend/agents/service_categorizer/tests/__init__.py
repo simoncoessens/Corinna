@@ -1,6 +1,1 @@
 """Tests for service categorizer."""
-
-
-
-
-
