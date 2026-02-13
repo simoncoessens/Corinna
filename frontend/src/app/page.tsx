@@ -30,18 +30,21 @@ export default function HomePage() {
     setShowPassword(false);
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifying(true);
     setPasswordError("");
 
-    const correctPassword = process.env.NEXT_PUBLIC_APP_PASSWORD;
+    try {
+      const res = await fetch("/api/verify-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const data = await res.json();
 
-    // Small delay for UX
-    setTimeout(() => {
-      if (password === correctPassword) {
+      if (data.success) {
         setShowPasswordModal(false);
-        // Proceed with the original begin flow
         startNewSession();
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("corinna_assessment_state");
@@ -55,8 +58,11 @@ export default function HomePage() {
       } else {
         setPasswordError("Incorrect password");
       }
+    } catch {
+      setPasswordError("Something went wrong. Please try again.");
+    } finally {
       setIsVerifying(false);
-    }, 300);
+    }
   };
 
   return (
