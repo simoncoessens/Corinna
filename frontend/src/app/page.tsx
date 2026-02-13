@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowRight, Search, Scale, FileText } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Search, Scale, FileText, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { startNewSession } from "@/services/api";
@@ -10,23 +10,53 @@ import { startNewSession } from "@/services/api";
 export default function HomePage() {
   const router = useRouter();
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleBegin = () => {
-    // Start a new session for each assessment
-    startNewSession();
-
-    // Clear all persisted assessment state so we start fresh
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("corinna_assessment_state");
-      sessionStorage.removeItem("corinna_company_matcher_state");
-      sessionStorage.removeItem("corinna_deep_research_state");
+  useEffect(() => {
+    if (showPasswordModal && inputRef.current) {
+      inputRef.current.focus();
     }
+  }, [showPasswordModal]);
 
-    setIsTransitioning(true);
-    // Navigate after the fade-out completes
+  const handleBeginClick = () => {
+    setShowPasswordModal(true);
+    setPassword("");
+    setPasswordError("");
+    setShowPassword(false);
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setPasswordError("");
+
+    const correctPassword = process.env.NEXT_PUBLIC_APP_PASSWORD;
+
+    // Small delay for UX
     setTimeout(() => {
-      router.push("/assessment");
-    }, 625);
+      if (password === correctPassword) {
+        setShowPasswordModal(false);
+        // Proceed with the original begin flow
+        startNewSession();
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("corinna_assessment_state");
+          sessionStorage.removeItem("corinna_company_matcher_state");
+          sessionStorage.removeItem("corinna_deep_research_state");
+        }
+        setIsTransitioning(true);
+        setTimeout(() => {
+          router.push("/assessment");
+        }, 625);
+      } else {
+        setPasswordError("Incorrect password");
+      }
+      setIsVerifying(false);
+    }, 300);
   };
 
   return (
@@ -163,7 +193,7 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.8 }}
             >
               <Button
-                onClick={handleBegin}
+                onClick={handleBeginClick}
                 size="lg"
                 variant="primary"
                 className="group"
@@ -203,6 +233,128 @@ export default function HomePage() {
           </p>
         </div>
       </motion.div>
+
+      {/* Password Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 bg-[#0a0a0a]/40 backdrop-blur-sm"
+              onClick={() => setShowPasswordModal(false)}
+            />
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div
+                className="w-full max-w-sm pointer-events-auto bg-white border border-[#e7e5e4] shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-8">
+                  {/* Header */}
+                  <div className="flex flex-col items-center mb-8">
+                    <div className="w-12 h-12 rounded-full bg-[#0a0a0a]/5 flex items-center justify-center mb-4">
+                      <Lock className="w-5 h-5 text-[#0a0a0a]" strokeWidth={1.5} />
+                    </div>
+                    <h2 className="font-serif text-2xl text-[#0a0a0a] mb-1">
+                      Access Required
+                    </h2>
+                    <p className="font-sans text-sm text-[#78716c]">
+                      Enter the password to continue
+                    </p>
+                  </div>
+
+                  {/* Form */}
+                  <form onSubmit={handlePasswordSubmit}>
+                    <div className="mb-4">
+                      <label className="block font-mono text-xs uppercase tracking-wider text-[#78716c] mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          ref={inputRef}
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            setPasswordError("");
+                          }}
+                          className="w-full h-12 px-4 pr-12 bg-[#fafaf9] border border-[#e7e5e4] font-sans text-[#0a0a0a] focus:outline-none focus:border-[#0a0a0a] transition-colors"
+                          placeholder="Enter password"
+                          required
+                          autoComplete="off"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#a8a29e] hover:text-[#0a0a0a] transition-colors cursor-pointer"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Error */}
+                    <AnimatePresence>
+                      {passwordError && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mb-4 overflow-hidden"
+                        >
+                          <div className="bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm font-sans">
+                            {passwordError}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={isVerifying}
+                      className="w-full h-12 bg-[#0a0a0a] text-white font-sans text-sm hover:bg-[#1a1a1a] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isVerifying ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          Continue
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Cancel */}
+                  <button
+                    onClick={() => setShowPasswordModal(false)}
+                    className="w-full mt-3 py-2 font-sans text-sm text-[#78716c] hover:text-[#0a0a0a] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.main>
   );
 }
