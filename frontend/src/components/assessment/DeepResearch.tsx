@@ -36,11 +36,15 @@ interface DeepResearchProps {
   }) => void;
 }
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
+    return "/demo";
+  }
+  return process.env.NODE_ENV === "development"
     ? "http://localhost:8001"
     : process.env.NEXT_PUBLIC_API_URL ||
       "https://snip-tool-backend.onrender.com";
+}
 
 const RESEARCH_PERSISTENCE_KEY = "corinna_deep_research_state";
 
@@ -378,7 +382,7 @@ export function DeepResearch({
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/agents/company_researcher/stream`,
+          `${getApiBaseUrl()}/agents/company_researcher/stream`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

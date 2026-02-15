@@ -73,18 +73,20 @@ export function clearSession(): void {
 // Configuration
 // =============================================================================
 
-// Get API URL from environment variable (set at build time)
-// - In development (npm run dev), ALWAYS default to local backend (ignores hosted env var)
-// - In production, default to hosted backend but allow override via NEXT_PUBLIC_API_URL
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
+// Get API URL dynamically based on current path.
+// When on /demo/*, route API calls to the local demo route handlers.
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
+    return "/demo";
+  }
+  return process.env.NODE_ENV === "development"
     ? "http://localhost:8001"
     : process.env.NEXT_PUBLIC_API_URL || "https://snip-tool-backend.onrender.com";
+}
 
 // Helpful debug log (visible in browser devtools console)
 if (typeof window !== "undefined") {
-   
-  console.log("[SNIP] Using API base URL:", API_BASE_URL);
+  console.log("[SNIP] Using API base URL:", getApiBaseUrl());
 }
 
 // =============================================================================
@@ -95,7 +97,7 @@ async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -116,7 +118,7 @@ async function* streamApi(
   endpoint: string,
   body: unknown
 ): AsyncGenerator<StreamEvent> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
   const response = await fetch(url, {
     method: "POST",
     headers: {

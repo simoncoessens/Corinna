@@ -74,4 +74,5 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: ["/assessment/:path*", "/admin/:path*"],
+  // Note: /demo paths are NOT listed here, so they pass through without auth.
 };

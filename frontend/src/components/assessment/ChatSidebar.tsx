@@ -296,11 +296,15 @@ const reportSuggestions = [
   "What are the penalties for non-compliance?",
 ];
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
+    return "/demo";
+  }
+  return process.env.NODE_ENV === "development"
     ? "http://localhost:8001"
     : process.env.NEXT_PUBLIC_API_URL ||
       "https://snip-tool-backend.onrender.com";
+}
 
 // Build the full context string from ChatContext
 function buildContextString(context: ChatContext): string {
@@ -534,7 +538,7 @@ export function ChatSidebar({
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/agents/main_agent/stream`,
+          `${getApiBaseUrl()}/agents/main_agent/stream`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
