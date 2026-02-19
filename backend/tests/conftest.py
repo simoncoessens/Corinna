@@ -113,15 +113,6 @@ def sample_classification() -> Dict[str, Any]:
 # Mock Fixtures
 # =============================================================================
 
-@pytest.fixture
-def mock_redis_client():
-    """Mock Redis client for cache tests."""
-    mock_client = MagicMock()
-    mock_client.ping.return_value = True
-    mock_client.get.return_value = None
-    mock_client.setex.return_value = True
-    return mock_client
-
 
 @pytest.fixture
 def mock_tavily_response() -> Dict[str, Any]:

@@ -339,11 +339,21 @@ async def stream_with_final_result(
 
     def observe_event(event: Dict[str, Any]) -> None:
         nonlocal final_output
-        # Prefer the top-level LangGraph output (root run has no parent_ids)
-        if event.get("event") == "on_chain_end" and not event.get("parent_ids"):
+        evt_type = event.get("event")
+        parent_ids = event.get("parent_ids")
+        # Capture output from any on_chain_end event that carries a dict with
+        # the keys we care about (e.g. final_report).  Prefer the root run
+        # (no parent_ids), but fall back to any chain_end that has output.
+        if evt_type == "on_chain_end":
             output = event.get("data", {}).get("output")
             if isinstance(output, dict):
-                final_output = output
+                if not parent_ids:
+                    # Root-level graph output — always prefer this.
+                    final_output = output
+                elif final_output is None:
+                    # Fallback: capture first matching output in case root
+                    # event structure changes across LangGraph versions.
+                    final_output = output
 
     # Stream events first (without done), so we can emit result before done.
     async for chunk in stream_agent_events(
@@ -356,6 +366,10 @@ async def stream_with_final_result(
         yield chunk
 
     # Emit final structured result if we managed to capture it.
+    if extract_result and final_output is None:
+        logger.warning(
+            "stream_with_final_result: no final_output captured from graph events"
+        )
     if extract_result and final_output is not None:
         try:
             extracted = extract_result(final_output)
@@ -755,6 +769,12 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
 
                 def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     final_report = result.get("final_report", "")
+                    if not final_report:
+                        logger.warning(
+                            "extract_result: no final_report in graph output. Keys: %s",
+                            list(result.keys()),
+                        )
+                        return None
                     if final_report:
                         try:
                             parsed = json.loads(final_report)
