@@ -4,7 +4,9 @@
  */
 
 const BACKEND_URL =
-  process.env.BACKEND_URL || "http://localhost:8001";
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://snip-tool-backend.onrender.com";
 
 export async function POST(request: Request) {
   const body = await request.json();
