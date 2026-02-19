@@ -5,20 +5,19 @@ ReAct agent with web search and DSA knowledge base retrieval.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from main_agent.configuration import Configuration
 from main_agent.state import MainAgentInputState, MainAgentState
 from main_agent.tools import get_all_tools
+from tools import create_llm
 
 
 # =============================================================================
@@ -41,42 +40,14 @@ def load_prompt(template_name: str, **kwargs) -> str:
 
 
 # =============================================================================
-# API Credentials
-# =============================================================================
-
-def _get_api_credentials(config: RunnableConfig | None):
-    """Get API key and base URL for DeepSeek."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL")
-    
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        api_key = api_keys.get("OPENAI_API_KEY") or api_key
-        base_url = api_keys.get("OPENAI_BASE_URL") or base_url
-    
-    return api_key, base_url
-
-
-# =============================================================================
 # Graph Nodes
 # =============================================================================
 
 async def agent(state: MainAgentState, config: RunnableConfig | None = None) -> dict:
     """Main ReAct agent node."""
     cfg = Configuration.from_runnable_config(config) if config else Configuration()
-    api_key, base_url = _get_api_credentials(config)
-    
-    # Build model params, only including non-None values
-    model_name = cfg.main_model.replace("openai:", "") if cfg.main_model.startswith("openai:") else cfg.main_model
-    model_params = {
-        "model": model_name,
-    }
-    if api_key:
-        model_params["api_key"] = api_key
-    if base_url:
-        model_params["base_url"] = base_url
-    
-    model = ChatOpenAI(**model_params)
+
+    model = create_llm(cfg.main_model, config)
     
     tools = get_all_tools()
     model_with_tools = model.bind_tools(tools)
