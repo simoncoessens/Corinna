@@ -4,20 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
+import sys
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from service_categorizer.models import Classification, ObligationAnalysis, ComplianceReport
 from service_categorizer.obligations import get_obligations_for_classification
 from service_categorizer.state import ServiceCategorizerInputState, ServiceCategorizerState
 
+
+# Import shared tools from backend/agents/tools.
+_AGENTS_PATH = Path(__file__).resolve().parents[3]
+if str(_AGENTS_PATH) not in sys.path:
+    sys.path.insert(0, str(_AGENTS_PATH))
+from tools import create_llm
 
 try:
     # Available when running via backend/api (backend added to sys.path there)
@@ -89,23 +94,13 @@ def load_prompt(template_name: str, **kwargs) -> str:
     return template.render(**kwargs)
 
 
-def _get_model(config: RunnableConfig | None = None) -> ChatOpenAI:
-    """Get configured LLM."""
-    api_key = None
-    base_url = None
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL")
-    
-    return ChatOpenAI(
-        model="deepseek-reasoner",
-        api_key=api_key,
-        base_url=base_url,
-    )
+_SERVICE_CATEGORIZER_MODEL = "openrouter:moonshotai/kimi-k2-thinking"
+
+
+def _get_categorizer_model(config: RunnableConfig | None) -> str:
+    """Read the categorizer model from RunnableConfig, falling back to default."""
+    configurable = (config or {}).get("configurable", {})
+    return configurable.get("categorizer_model", _SERVICE_CATEGORIZER_MODEL)
 
 
 def _parse_json(text: str) -> dict:
@@ -170,8 +165,8 @@ async def classify_service(
     profile = state.get("company_profile", {})
     top_domain = state.get("top_domain")
     summary_long = state.get("summary_long")
-    model = _get_model(config)
-    
+    model = create_llm(_get_categorizer_model(config), config)
+
     prompt = load_prompt(
         "classify.jinja",
         company_profile=json.dumps(profile, indent=2),
@@ -242,7 +237,7 @@ async def analyze_obligations(
     if not obligations:
         return {"obligation_analyses": [], "messages": [AIMessage(content="No obligations to analyze.")]}
     
-    model = _get_model(config)
+    model = create_llm(_get_categorizer_model(config), config)
     company_name = profile.get("company_name", "Unknown Company")
     classification_summary = classification.get("summary", "")
     
@@ -294,7 +289,7 @@ async def generate_report(
     classification = state.get("classification", {})
     analyses = state.get("obligation_analyses", [])
     
-    model = _get_model(config)
+    model = create_llm(_get_categorizer_model(config), config)
     company_name = profile.get("company_name", "Unknown Company")
     
     prompt = load_prompt(

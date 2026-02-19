@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -12,19 +11,18 @@ from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from company_matcher.models import CompanyMatch, CompanyMatchResult
 from company_matcher.state import CompanyMatcherInputState, CompanyMatcherState
 
-# Import shared Tavily tools from backend/agents/tools.
+# Import shared tools from backend/agents/tools.
 # (This repo keeps shared tools outside this package, so we add backend/agents to sys.path.)
 _AGENTS_PATH = Path(__file__).resolve().parents[3]
 if str(_AGENTS_PATH) not in sys.path:
     sys.path.insert(0, str(_AGENTS_PATH))
-from tools import tavily_search_tool
+from tools import create_llm, tavily_search_tool
 
 
 # =============================================================================
@@ -166,15 +164,9 @@ async def run_agent(
     state: CompanyMatcherState, config: RunnableConfig | None = None
 ) -> dict:
     """LLM step that decides whether to call tools or produce a final answer."""
-    api_keys = (config or {}).get("configurable", {}).get("apiKeys", {})
-    api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-
-    model = ChatOpenAI(
-        model="deepseek-chat",
-        api_key=api_key,
-        base_url=base_url,
-    ).bind_tools(TOOLS)
+    configurable = (config or {}).get("configurable", {})
+    model_string = configurable.get("matcher_model", "openrouter:moonshotai/kimi-k2-thinking")
+    model = create_llm(model_string, config).bind_tools(TOOLS)
 
     response = await model.ainvoke(state["messages"], config=config)
     return {"messages": [response]}

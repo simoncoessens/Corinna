@@ -20,6 +20,7 @@ from pathlib import Path
 
 # Reconnectable streaming hub (does not depend on DB)
 from api.stream_hub import stream_hub, StreamJob
+from api.model_config import get_runnable_configurable
 
 # Logger (uvicorn will pick this up)
 logger = logging.getLogger("dsa_copilot.api")
@@ -110,6 +111,15 @@ except ImportError as e:
     DB_AVAILABLE = False
     admin_router = None
     tracker = None
+
+
+# =============================================================================
+# Model Configuration Helper
+# =============================================================================
+
+def _make_config() -> Dict[str, Any]:
+    """Build a RunnableConfig with the current admin-selected models."""
+    return {"configurable": get_runnable_configurable()}
 
 
 # =============================================================================
@@ -538,6 +548,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
             stream = stream_with_final_result(
                 company_matcher,
                 input_state,
+                config=_make_config(),
                 extract_result=extract_result,
             )
 
@@ -602,8 +613,9 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
     
     # Fallback: no session_id, run without reconnection support
     stream = stream_with_final_result(
-        company_matcher, 
-        input_state, 
+        company_matcher,
+        input_state,
+        config=_make_config(),
         extract_result=extract_result,
     )
     
@@ -679,7 +691,7 @@ async def company_matcher_invoke(request: CompanyMatcherRequest):
             "messages": [HumanMessage(content=request.company_name.strip())],
             "country_of_establishment": request.country_of_establishment.strip(),
         }
-        result = await company_matcher.ainvoke(input_state)
+        result = await company_matcher.ainvoke(input_state, config=_make_config())
         match_result = result.get("match_result", "")
         
         if match_result:
@@ -775,6 +787,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                 stream = stream_with_final_result(
                     company_researcher,
                     input_state,
+                    config=_make_config(),
                     extract_result=extract_result,
                 )
 
@@ -854,7 +867,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         "summary_long": (request.summary_long or "").strip() or None,
     }
 
-    stream = stream_with_final_result(company_researcher, input_state)
+    stream = stream_with_final_result(company_researcher, input_state, config=_make_config())
 
     return StreamingResponse(
         stream,
@@ -882,7 +895,7 @@ async def company_researcher_invoke(request: CompanyResearcherRequest):
             "top_domain": (request.top_domain or "").strip() or None,
             "summary_long": (request.summary_long or "").strip() or None,
         }
-        result = await company_researcher.ainvoke(input_state)
+        result = await company_researcher.ainvoke(input_state, config=_make_config())
         final_report = result.get("final_report", "")
         
         if final_report:
@@ -954,7 +967,7 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
                 return None
         return None
     
-    stream = stream_with_final_result(service_categorizer, input_state, extract_result=extract_result)
+    stream = stream_with_final_result(service_categorizer, input_state, config=_make_config(), extract_result=extract_result)
     
     # Wrap stream to collect metrics (non-blocking) and update DB at the end
     async def tracked_stream():
@@ -1009,7 +1022,7 @@ async def service_categorizer_invoke(request: ServiceCategorizerRequest):
             "top_domain": (request.top_domain or "").strip() or None,
             "summary_long": (request.summary_long or "").strip() or None,
         }
-        result = await service_categorizer.ainvoke(input_state)
+        result = await service_categorizer.ainvoke(input_state, config=_make_config())
         final_report = result.get("final_report", "")
         
         if final_report:
@@ -1075,7 +1088,7 @@ async def main_agent_stream(request: MainAgentRequest):
             return {"response": content}
         return None
     
-    stream = stream_with_final_result(main_agent, input_state, extract_result=extract_result)
+    stream = stream_with_final_result(main_agent, input_state, config=_make_config(), extract_result=extract_result)
     
     # Wrap stream to track tools and sources
     async def tracked_stream():
@@ -1121,7 +1134,7 @@ async def main_agent_invoke(request: MainAgentRequest):
             "frontend_context": request.frontend_context,
             "context_mode": request.context_mode,
         }
-        result = await main_agent.ainvoke(input_state)
+        result = await main_agent.ainvoke(input_state, config=_make_config())
         messages = result.get("messages", [])
         
         if messages:

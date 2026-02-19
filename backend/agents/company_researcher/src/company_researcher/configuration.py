@@ -10,15 +10,15 @@ from pydantic import BaseModel, Field
 class Configuration(BaseModel):
     """Configuration for Company Researcher."""
 
-    # Model settings - using DeepSeek by default
+    # Model settings
     research_model: str = Field(
-        default="openai:deepseek-chat",
+        default="openrouter:moonshotai/kimi-k2-thinking",
         metadata={
             "description": "Model for conducting research (via OpenAI-compatible API)"
         }
     )
     summarization_model: str = Field(
-        default="openai:deepseek-reasoner",
+        default="openrouter:moonshotai/kimi-k2-thinking",
         metadata={"description": "Model for summarizing research results"}
     )
     # Research agent settings
