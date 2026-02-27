@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 # Reconnectable streaming hub (does not depend on DB)
+from api.metrics import StreamMetrics, tracked_stream
 from api.stream_hub import stream_hub, StreamJob
 
 # Logger (uvicorn will pick this up)
@@ -509,20 +510,16 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
         
         async def run_job(job: StreamJob) -> None:
             """Run the company matcher and buffer events in the job."""
-            step_id: Optional[str] = None
-            llm_calls = 0
-            search_calls = 0
-            sources_collected: List[Dict] = []
-            error_occurred: Optional[str] = None
+            local_step_id: Optional[str] = None
+            metrics = StreamMetrics()
 
             if DB_AVAILABLE and tracker:
-                # Ensure session exists and record that we're matching
                 tracker.get_or_create_session(
                     session_id,
                     company_name=request.company_name.strip(),
                     country=request.country_of_establishment.strip(),
                 )
-                step_id = tracker.start_step(
+                local_step_id = tracker.start_step(
                     session_id,
                     StepType.COMPANY_MATCHER,
                     {
@@ -531,12 +528,11 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
                     },
                 )
 
-            def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            def local_extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 match_result = result.get("match_result", "")
                 if match_result:
                     try:
                         parsed = json.loads(match_result)
-                        # Update session with matched company info
                         if DB_AVAILABLE and tracker:
                             exact = parsed.get("exact_match")
                             if exact:
@@ -546,13 +542,13 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
                                     company_domain=exact.get("top_domain"),
                                     status=SessionStatus.COMPANY_MATCHED,
                                 )
-                            if step_id:
-                                tracker.complete_step(step_id, parsed)
+                            if local_step_id:
+                                tracker.complete_step(local_step_id, parsed)
                         return parsed
                     except json.JSONDecodeError:
-                        if step_id and tracker:
+                        if local_step_id and tracker:
                             tracker.complete_step(
-                                step_id,
+                                local_step_id,
                                 error_message="Failed to parse result",
                             )
                         return None
@@ -561,51 +557,24 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
             stream = stream_with_final_result(
                 company_matcher,
                 input_state,
-                extract_result=extract_result,
+                extract_result=local_extract_result,
             )
 
             try:
                 async for chunk in stream:
-                    # Collect metrics (best effort)
-                    if chunk.startswith("data: "):
-                        try:
-                            event_data = json.loads(chunk[6:])
-                            event_type = event_data.get("type")
-                            if event_type == "llm_start":
-                                llm_calls += 1
-                            elif event_type == "tool_end":
-                                name = event_data.get("name", "")
-                                if "search" in name.lower():
-                                    search_calls += 1
-                                    sources = event_data.get("sources", [])
-                                    if sources:
-                                        sources_collected.extend(sources)
-                        except json.JSONDecodeError:
-                            pass
-
+                    metrics.process_event(chunk)
                     await job.append(chunk)
             except Exception as e:
-                error_occurred = str(e)
+                metrics.error = str(e)
                 logger.exception("Company matcher job failed")
                 error_chunk = f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
                 await job.append(error_chunk)
             finally:
-                # Flush metrics once at the end
-                if step_id and tracker:
+                if local_step_id and tracker:
                     try:
-                        if llm_calls or search_calls or sources_collected:
-                            tracker.update_step_metrics(
-                                step_id,
-                                llm_calls=llm_calls,
-                                search_calls=search_calls,
-                                sources=sources_collected if sources_collected else None,
-                            )
-                        if error_occurred:
-                            tracker.complete_step(step_id, error_message=error_occurred)
+                        metrics.flush_to_tracker(tracker, local_step_id)
                     except Exception:
-                        # Never let tracking errors break streaming
                         pass
-
                 await job.finish()
         
         job = await stream_hub.get_or_create(job_key, run_job)
@@ -625,56 +594,13 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
     
     # Fallback: no session_id, run without reconnection support
     stream = stream_with_final_result(
-        company_matcher, 
-        input_state, 
+        company_matcher,
+        input_state,
         extract_result=extract_result,
     )
-    
-    # Wrap stream to collect metrics (non-blocking) and update DB at the end
-    async def tracked_stream():
-        llm_calls = 0
-        search_calls = 0
-        sources_collected: List[Dict] = []
-        error_occurred = None
-        
-        try:
-            async for chunk in stream:
-                # Parse events to collect metrics (without DB calls during streaming)
-                if chunk.startswith("data: "):
-                    try:
-                        event_data = json.loads(chunk[6:])
-                        event_type = event_data.get("type")
-                        if event_type == "llm_start":
-                            llm_calls += 1
-                        elif event_type == "tool_end" and "search" in event_data.get("name", "").lower():
-                            search_calls += 1
-                            sources = event_data.get("sources", [])
-                            if sources:
-                                sources_collected.extend(sources)
-                    except json.JSONDecodeError:
-                        pass
-                yield chunk
-        except Exception as e:
-            error_occurred = str(e)
-            raise
-        finally:
-            # Update DB once at the end (not during streaming)
-            if step_id and tracker:
-                try:
-                    if llm_calls or search_calls or sources_collected:
-                        tracker.update_step_metrics(
-                            step_id, 
-                            llm_calls=llm_calls, 
-                            search_calls=search_calls,
-                            sources=sources_collected if sources_collected else None
-                        )
-                    if error_occurred:
-                        tracker.complete_step(step_id, error_message=error_occurred)
-                except Exception:
-                    pass  # Don't let tracking errors break the response
-    
+
     return StreamingResponse(
-        tracked_stream(),
+        tracked_stream(stream, tracker=tracker if DB_AVAILABLE else None, step_id=step_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -801,38 +727,17 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                     extract_result=extract_result,
                 )
 
-                llm_calls = 0
-                search_calls = 0
-                sources_collected: List[Dict] = []
-                error_occurred = None
-
+                metrics = StreamMetrics()
                 try:
                     async for chunk in stream:
-                        # Collect metrics (best effort)
-                        if chunk.startswith("data: "):
-                            try:
-                                event_data = json.loads(chunk[6:])
-                                event_type = event_data.get("type")
-                                if event_type == "llm_start":
-                                    llm_calls += 1
-                                elif event_type == "tool_end":
-                                    name = event_data.get("name", "")
-                                    if "search" in name.lower():
-                                        search_calls += 1
-                                        sources = event_data.get("sources", [])
-                                        if sources:
-                                            sources_collected.extend(sources)
-                            except json.JSONDecodeError:
-                                pass
-
+                        metrics.process_event(chunk)
                         await job.append(chunk)
                 except Exception as e:
-                    error_occurred = str(e)
+                    metrics.error = str(e)
                     logger.exception("Error while running company research job")
-                    # Emit an error event for subscribers
                     try:
                         await job.append(
-                            f"data: {json.dumps({'type': 'error', 'message': error_occurred[:500]})}\n\n"
+                            f"data: {json.dumps({'type': 'error', 'message': str(e)[:500]})}\n\n"
                         )
                         await job.append(f"data: {json.dumps({'type': 'done'})}\n\n")
                     except Exception:
@@ -840,19 +745,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                 finally:
                     if step_id and tracker:
                         try:
-                            if llm_calls or search_calls or sources_collected:
-                                tracker.update_step_metrics(
-                                    step_id,
-                                    llm_calls=llm_calls,
-                                    search_calls=search_calls,
-                                    sources=sources_collected
-                                    if sources_collected
-                                    else None,
-                                )
-                            if error_occurred:
-                                tracker.complete_step(
-                                    step_id, error_message=error_occurred
-                                )
+                            metrics.flush_to_tracker(tracker, step_id)
                         except Exception:
                             pass
             finally:
@@ -978,40 +871,9 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
         return None
     
     stream = stream_with_final_result(service_categorizer, input_state, extract_result=extract_result)
-    
-    # Wrap stream to collect metrics (non-blocking) and update DB at the end
-    async def tracked_stream():
-        llm_calls = 0
-        error_occurred = None
-        
-        try:
-            async for chunk in stream:
-                # Parse events to collect metrics (without DB calls during streaming)
-                if chunk.startswith("data: "):
-                    try:
-                        event_data = json.loads(chunk[6:])
-                        event_type = event_data.get("type")
-                        if event_type == "llm_start":
-                            llm_calls += 1
-                    except json.JSONDecodeError:
-                        pass
-                yield chunk
-        except Exception as e:
-            error_occurred = str(e)
-            raise
-        finally:
-            # Update DB once at the end (not during streaming)
-            if step_id and tracker:
-                try:
-                    if llm_calls:
-                        tracker.update_step_metrics(step_id, llm_calls=llm_calls)
-                    if error_occurred:
-                        tracker.complete_step(step_id, error_message=error_occurred)
-                except Exception:
-                    pass  # Don't let tracking errors break the response
-    
+
     return StreamingResponse(
-        tracked_stream(),
+        tracked_stream(stream, tracker=tracker if DB_AVAILABLE else None, step_id=step_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1059,9 +921,8 @@ async def main_agent_stream(request: MainAgentRequest):
     # Session tracking - record user message
     session_id = request.session_id
     start_time = time.time()
-    tools_used: List[str] = []
-    sources_cited: List[Dict] = []
-    
+    metrics = StreamMetrics()
+
     if session_id and DB_AVAILABLE and tracker:
         tracker.add_chat_message(
             session_id,
@@ -1070,20 +931,19 @@ async def main_agent_stream(request: MainAgentRequest):
             frontend_context=request.frontend_context,
             context_mode=request.context_mode,
         )
-    
+
     input_state: MainAgentInputState = {
         "messages": [HumanMessage(content=request.message.strip())],
         "frontend_context": request.frontend_context,
         "context_mode": request.context_mode,
     }
-    
+
     def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         messages = result.get("messages", [])
         if messages:
             last_message = messages[-1]
             content = last_message.content if hasattr(last_message, "content") else str(last_message)
-            
-            # Record assistant response
+
             if session_id and DB_AVAILABLE and tracker:
                 duration = time.time() - start_time
                 tracker.add_chat_message(
@@ -1091,36 +951,22 @@ async def main_agent_stream(request: MainAgentRequest):
                     role="assistant",
                     content=content,
                     duration_seconds=duration,
-                    tools_used=tools_used if tools_used else None,
-                    sources_cited=sources_cited if sources_cited else None,
+                    tools_used=metrics.tools_used if metrics.tools_used else None,
+                    sources_cited=metrics.sources if metrics.sources else None,
                 )
-            
+
             return {"response": content}
         return None
-    
+
     stream = stream_with_final_result(main_agent, input_state, extract_result=extract_result)
-    
-    # Wrap stream to track tools and sources
-    async def tracked_stream():
+
+    async def metrics_stream():
         async for chunk in stream:
-            if chunk.startswith("data: ") and session_id:
-                try:
-                    event_data = json.loads(chunk[6:])
-                    event_type = event_data.get("type")
-                    if event_type == "tool_start":
-                        tool_name = event_data.get("name", "")
-                        if tool_name and tool_name not in tools_used:
-                            tools_used.append(tool_name)
-                    elif event_type == "tool_end":
-                        sources = event_data.get("sources", [])
-                        if sources:
-                            sources_cited.extend(sources)
-                except json.JSONDecodeError:
-                    pass
+            metrics.process_event(chunk)
             yield chunk
-    
+
     return StreamingResponse(
-        tracked_stream(),
+        metrics_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
