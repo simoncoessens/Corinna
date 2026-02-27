@@ -19,7 +19,7 @@ import {
   type ChatContext,
   type ContextMode,
 } from "@/components/assessment";
-import { Button } from "@/components/ui";
+import { Button, ErrorBoundary } from "@/components/ui";
 import { startNewSession, getSessionId } from "@/services/api";
 import type {
   CompanyResearchResult,
@@ -876,12 +876,14 @@ export default function AssessmentPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                     >
-                      <CompanyMatcher
-                        onCompanySelected={handleCompanySelected}
-                        onStartResearch={handleStartResearch}
-                        onManualEntry={handleManualEntry}
-                        onVisibleStateChange={setVisibleUiStep}
-                      />
+                      <ErrorBoundary>
+                        <CompanyMatcher
+                          onCompanySelected={handleCompanySelected}
+                          onStartResearch={handleStartResearch}
+                          onManualEntry={handleManualEntry}
+                          onVisibleStateChange={setVisibleUiStep}
+                        />
+                      </ErrorBoundary>
                     </motion.div>
                   )}
 
@@ -892,15 +894,17 @@ export default function AssessmentPage() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                     >
-                      <DeepResearch
-                        companyName={selectedCompany.name}
-                        topDomain={selectedCompany.top_domain}
-                        summaryLong={selectedCompany.summary_long}
-                        onComplete={handleResearchComplete}
-                        onError={handleResearchError}
-                        onSourcesReady={handleResearchSourcesReady}
-                        onVisibleStateChange={setVisibleUiStep}
-                      />
+                      <ErrorBoundary>
+                        <DeepResearch
+                          companyName={selectedCompany.name}
+                          topDomain={selectedCompany.top_domain}
+                          summaryLong={selectedCompany.summary_long}
+                          onComplete={handleResearchComplete}
+                          onError={handleResearchError}
+                          onSourcesReady={handleResearchSourcesReady}
+                          onVisibleStateChange={setVisibleUiStep}
+                        />
+                      </ErrorBoundary>
                     </motion.div>
                   )}
 
@@ -1094,6 +1098,19 @@ export default function AssessmentPage() {
                         All findings have been reviewed and confirmed. Ready to
                         proceed with DSA service classification.
                       </p>
+                      <ErrorBoundary>
+                        <ServiceClassification
+                          companyProfile={companyProfile}
+                          topDomain={selectedCompany?.top_domain}
+                          summaryLong={selectedCompany?.summary_long}
+                          onComplete={handleClassificationComplete}
+                          onError={handleClassificationError}
+                          onVisibleStateChange={setVisibleUiStep}
+                        />
+                      </ErrorBoundary>
+                    </div>
+                  ) : (
+                    <ErrorBoundary>
                       <ServiceClassification
                         companyProfile={companyProfile}
                         topDomain={selectedCompany?.top_domain}
@@ -1102,16 +1119,7 @@ export default function AssessmentPage() {
                         onError={handleClassificationError}
                         onVisibleStateChange={setVisibleUiStep}
                       />
-                    </div>
-                  ) : (
-                    <ServiceClassification
-                      companyProfile={companyProfile}
-                      topDomain={selectedCompany?.top_domain}
-                      summaryLong={selectedCompany?.summary_long}
-                      onComplete={handleClassificationComplete}
-                      onError={handleClassificationError}
-                      onVisibleStateChange={setVisibleUiStep}
-                    />
+                    </ErrorBoundary>
                   )}
                 </motion.div>
               )}
@@ -1126,13 +1134,15 @@ export default function AssessmentPage() {
                   className="w-full"
                 >
                   {complianceReport ? (
-                    <ComplianceDashboard
-                      report={complianceReport}
-                      companyProfile={companyProfile}
-                      onBack={handleBackFromDashboard}
-                      onVisibleStateChange={setVisibleUiStep}
-                      onAskCorinna={handleAskCorinnaObligation}
-                    />
+                    <ErrorBoundary>
+                      <ComplianceDashboard
+                        report={complianceReport}
+                        companyProfile={companyProfile}
+                        onBack={handleBackFromDashboard}
+                        onVisibleStateChange={setVisibleUiStep}
+                        onAskCorinna={handleAskCorinnaObligation}
+                      />
+                    </ErrorBoundary>
                   ) : (
                     // Report is missing (possibly due to sessionStorage limits) - show loading or re-run categorizer
                     <div className="flex flex-col items-center text-center">

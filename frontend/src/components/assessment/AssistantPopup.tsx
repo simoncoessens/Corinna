@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, X, MessageCircleQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getSessionId } from "@/services/api";
 import { streamSSE } from "@/services/streaming";
 import { MarkdownContent } from "@/components/ui";
 import type { Message } from "@/types/chat";
@@ -189,6 +190,7 @@ export function AssistantPopup({
       for await (const event of streamSSE("/agents/main_agent/stream", {
         message: userMessage.content,
         frontend_context: context,
+        session_id: getSessionId(),
       })) {
         switch (event.type) {
           case "token":
