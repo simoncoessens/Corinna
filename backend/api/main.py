@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -16,7 +17,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from pathlib import Path
 
 # Reconnectable streaming hub (does not depend on DB)
 from api.stream_hub import stream_hub, StreamJob
@@ -35,14 +35,10 @@ backend_env_path = Path(__file__).resolve().parent.parent / ".env"
 if backend_env_path.exists():
     load_dotenv(backend_env_path, override=True)
 
-# Add backend to path for database imports
+# Add backend to path for database imports and agents
 backend_path = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_path))
-
-# Add agents to path
-backend_path = Path(__file__).resolve().parent.parent
 agents_path = backend_path / "agents"
-sys.path.insert(0, str(backend_path))
 
 # Add each agent's src directory to path for imports
 agent_src_paths = [
@@ -102,7 +98,7 @@ except ImportError as e:
 try:
     from database import init_db
     from api.admin import router as admin_router
-    from api.session_tracker import tracker, StepContext
+    from api.session_tracker import tracker
     from database.models import SessionStatus, StepType
     DB_AVAILABLE = True
 except ImportError as e:
@@ -238,7 +234,6 @@ async def stream_agent_events(
                 # Extract URLs from search results for web_search tool
                 sources = []
                 if event_name == "web_search" and output_str:
-                    import re
                     def clean_url(u: str) -> str:
                         u = (u or "").strip()
                         # Sometimes tool outputs are stringified with escaped newlines.
@@ -478,7 +473,35 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
         "messages": [HumanMessage(content=request.company_name.strip())],
         "country_of_establishment": request.country_of_establishment.strip(),
     }
-    
+
+    step_id: Optional[str] = None
+
+    def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        match_result = result.get("match_result", "")
+        if match_result:
+            try:
+                parsed = json.loads(match_result)
+                if DB_AVAILABLE and tracker and session_id:
+                    exact = parsed.get("exact_match")
+                    if exact:
+                        tracker.update_session(
+                            session_id,
+                            company_name=exact.get("name"),
+                            company_domain=exact.get("top_domain"),
+                            status=SessionStatus.COMPANY_MATCHED,
+                        )
+                    if step_id:
+                        tracker.complete_step(step_id, parsed)
+                return parsed
+            except json.JSONDecodeError:
+                if step_id and tracker:
+                    tracker.complete_step(
+                        step_id,
+                        error_message="Failed to parse result",
+                    )
+                return None
+        return None
+
     # If we have a session_id, use reconnectable streaming via the hub
     if session_id:
         # Build a stable key for this matching job

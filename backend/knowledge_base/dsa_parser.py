@@ -1,7 +1,6 @@
 """Parser for the Digital Services Act HTML document."""
 import os
 from pathlib import Path
-import re
 import warnings
 
 import httpx
@@ -150,41 +149,6 @@ def _parse_articles(soup: BeautifulSoup) -> list[ArticleChunk]:
                 section=section,
                 category=category,
                 chunk_type="article",
-            ))
-    
-    return chunks
-
-
-def _parse_definitions(soup: BeautifulSoup) -> list[ArticleChunk]:
-    """Parse definitions from Article 3."""
-    chunks = []
-    
-    # Article 3 contains definitions - we parse it specially
-    art3 = soup.find("div", id="art_3")
-    if not art3:
-        return chunks
-    
-    # Find definition points
-    for point in art3.find_all("div", class_="eli-subdivision"):
-        point_id = point.get("id", "")
-        if "_pnt_" not in point_id:
-            continue
-            
-        text = point.get_text(separator=" ", strip=True)
-        
-        # Extract definition term (usually in quotes)
-        match = re.search(r"['']([^'']+)['']", text)
-        term = match.group(1) if match else point_id
-        
-        if text:
-            chunks.append(ArticleChunk(
-                id=f"definition_{point_id}",
-                article_number="3",
-                title=f"Definition: {term}",
-                content=text,
-                section="Definitions",
-                category="All Services",
-                chunk_type="definition",
             ))
     
     return chunks

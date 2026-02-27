@@ -65,7 +65,7 @@ def _infer_source_domain(raw_output: str, top_domain: str | None = None) -> str:
         return "Unknown"
 
     # Extract URLs (handles both real newlines and escaped \\n sequences).
-    urls = re.findall(r"https?://[^\\s\\n]+", text)
+    urls = re.findall(r"https?://[^\s\n]+", text)
     if not urls:
         return (top_domain or "").strip() or "Unknown"
 
@@ -165,140 +165,6 @@ async def research_agent(
     return {"messages": [response]}
 
 
-async def summarize_research(
-    state: QuestionResearchState, config: RunnableConfig | None = None
-) -> dict:
-    """Summarize the research trace into a final answer."""
-    # Extract trace from message history
-    messages = state.get("messages", [])
-    trace_parts = []
-    
-    final_summary_tool_arg = ""
-    
-    for msg in messages:
-        if isinstance(msg, (AIMessage, ToolMessage)):
-            trace_parts.append(str(msg.content))
-            # Look for finish_research tool call to get the proposed summary
-            if isinstance(msg, AIMessage) and msg.tool_calls:
-                 for tc in msg.tool_calls:
-                     if tc["name"] == "finish_research":
-                         final_summary_tool_arg = tc["args"].get("summary", "")
-        elif isinstance(msg, HumanMessage):
-             # Skip the big system prompt in trace to save tokens, or include if needed.
-             # Including just the content.
-             trace_parts.append(str(msg.content))
-
-    raw_output = "\n\n".join(trace_parts)
-    if final_summary_tool_arg:
-        raw_output += f"\n\nFINAL AGENT SUMMARY: {final_summary_tool_arg}"
-
-    try:
-        cfg = Configuration.from_runnable_config(config) if config else Configuration()
-        
-        model_name = cfg.summarization_model.replace("openai:", "") if cfg.summarization_model.startswith("openai:") else cfg.summarization_model
-        api_key = get_api_key_for_model(cfg.summarization_model, config)
-        base_url = None
-        if config:
-            api_keys = config.get("configurable", {}).get("apiKeys", {})
-            base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-        else:
-            base_url = os.getenv("OPENAI_BASE_URL")
-        
-        model_params = {
-            "model": model_name,
-        }
-        if api_key:
-            model_params["api_key"] = api_key
-        if base_url:
-            model_params["base_url"] = base_url
-        
-        model = ChatOpenAI(**model_params)
-        
-        prompt = load_prompt(
-            "summarize.jinja",
-            company_name=state["company_name"],
-            top_domain=state.get("top_domain"),
-            summary_long=state.get("summary_long"),
-            question=state["question"],
-            raw_output=raw_output,  # Full context - 128k context window available
-        )
-        
-        # summarization has no tool calls, but keep helper consistent in case
-        # upstream message lists include assistant tool-call messages.
-        response = await model.ainvoke([HumanMessage(content=prompt)])
-        response_text = str(response.content)
-        
-        # Parse response
-        answer = "Unable to determine"
-        source = "Unknown"
-        confidence = "Low"
-        information_found: bool | None = None
-        
-        for line in response_text.split('\n'):
-            line_clean = line.strip()
-            upper = line_clean.upper()
-            if upper.startswith("INFORMATION_FOUND:"):
-                raw_val = line_clean.split(":", 1)[1].strip() if ":" in line_clean else ""
-                norm = re.sub(r"[\s_\-]+", "", raw_val.lower())
-                if norm in {"yes", "y", "true", "1", "found"}:
-                    information_found = True
-                elif norm in {"no", "n", "false", "0", "notfound"}:
-                    information_found = False
-            elif upper.startswith("ANSWER:"):
-                answer = line_clean.split(":", 1)[1].strip() if ":" in line_clean else answer
-            elif upper.startswith("SOURCE:"):
-                source = line_clean.split(":", 1)[1].strip() if ":" in line_clean else source
-            elif upper.startswith("CONFIDENCE:"):
-                confidence = line_clean.split(":", 1)[1].strip() if ":" in line_clean else confidence
-
-        # Backward compatible fallback if the new field isn't present.
-        if information_found is None:
-            information_found = answer.strip().lower() != "information not publicly available"
-
-        # Normalize the explicit "no information found" case.
-        if information_found is False:
-            answer = "Information not publicly available"
-            source = "N/A"
-            confidence = "Low"
-        
-        result_obj = SubQuestionAnswer(
-            section=state["section"],
-            question=state["question"],
-            answer=answer,
-            information_found=information_found,
-            source=source,
-            confidence=confidence,
-            raw_research=raw_output,
-        )
-        
-        # We need to return the answer to the PARENT graph
-        # LangGraph subgraphs don't write directly to parent state unless we return it
-        # BUT, when called via Send/node, the return value of the compiled graph is what matters?
-        # Actually, we need to return a dict that matches the parent state schema for reduction?
-        # No, Send("node_name", input) -> node execution.
-        # If node is a compiled graph, its output is its final state.
-        # We need a way to bubble up the 'completed_answers' to the main state.
-        
-        # Since this node is the last in the subgraph, its output is part of the subgraph's final state.
-        # However, to merge into the main state's `completed_answers`, we need the main graph to handle it.
-        # The main graph's `Send` mechanism will collect results?
-        # No, `Send` just spawns tasks. They write to the shared state? 
-        # Standard pattern: The subgraph returns a state update that is compatible with the parent?
-        # OR: We just define `completed_answers` in `QuestionResearchState`?
-        # No, `QuestionResearchState` is local.
-        
-        # Correct approach: The `research_subgraph` output should contain `completed_answers`.
-        # So we add `completed_answers` to `QuestionResearchState` just for transport?
-        # Or we rely on the node wrapper in the main graph to format it.
-        
-        return {
-            "research_summary": response_text
-        }
-        
-    except Exception as e:
-        return {"research_summary": f"Error: {str(e)}"}
-
-
 # =============================================================================
 # Main Graph Nodes
 # =============================================================================
@@ -378,58 +244,6 @@ async def finalize_report(
         "messages": [AIMessage(content=json_payload)],
     }
 
-
-# Wrapper to format subgraph output for the main state
-def format_subgraph_output(state: QuestionResearchState) -> dict:
-    """Take the final state of the subgraph and format it for the main graph reducer."""
-    # We need to reconstruct the SubQuestionAnswer from the subgraph state
-    # But wait, `summarize_research` created it but didn't return it in a way we can easily grab?
-    # Let's modify `summarize_research` to put the dictionary in a specific key.
-    
-    # Actually, better pattern: `summarize_research` returns a dict that *looks* like a partial update for the main state?
-    # No, the subgraph state is isolated.
-    # We need to bridge the gap.
-    
-    # Let's parse the `research_summary` or `messages` to rebuild the answer object?
-    # Or just have `summarize_research` return a special key "answer_dict" in the subgraph state.
-    pass # Implemented below in graph construction
-
-
-async def research_summarizer_wrapper(state: QuestionResearchState, config: RunnableConfig | None = None):
-    """Last node of subgraph: generates summary AND formats it for parent state."""
-    # Run the summarization logic
-    res = await summarize_research(state, config)
-    
-    # Re-extract the structured answer from the logic (duplicated for now, or refactor)
-    # To avoid duplication, let's look at `summarize_research` again.
-    # It builds `result_obj`. We should store `result_obj.model_dump()` in the state.
-    
-    # Hack: Let's make `summarize_research` return `{"completed_answers": [result_obj.model_dump()]}`?
-    # If the subgraph state has `completed_answers` (local), it works.
-    # But `QuestionResearchState` doesn't have it.
-    # Let's add it to `QuestionResearchState`? No, it's specific to the parent.
-    
-    # We will modify `summarize_research` to return the dict directly, 
-    # and we will use a "Write" node at the end of subgraph to output to parent?
-    # LangGraph `Send` outputs are merged to parent state if the node definition matches?
-    # No, `Send` invokes a node/graph. The return value of that invocation is merged.
-    # If the invocation is a Graph, the return value is the final state of that Graph.
-    # So `QuestionResearchState` needs to contain the data we want to bubble up.
-    # But `QuestionResearchState` fields (question, section, etc) might clash or not match `CompanyResearchState`.
-    
-    # Solution: The output of the subgraph is `QuestionResearchState`.
-    # The parent `CompanyResearchState` has `completed_answers`.
-    # We need a way to map `QuestionResearchState` -> `CompanyResearchState` update.
-    # This is usually done by ensuring the subgraph state has the same key, OR by using a wrapper node in the main graph that calls the subgraph.
-    # But `Send` goes directly to the node/graph.
-    
-    # Best way: Add `completed_answers` to `QuestionResearchState`.
-    # The subgraph writes to it. 
-    # When subgraph finishes, it returns `QuestionResearchState`.
-    # The parent merges this. Since `completed_answers` matches, it gets appended.
-    # `question` and `section` in `QuestionResearchState` might overwrite parent? 
-    # `CompanyResearchState` doesn't have `question` (scalar), it has `subquestions` (list). So no clash.
-    pass
 
 # =============================================================================
 # Graph Construction

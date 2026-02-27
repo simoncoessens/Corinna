@@ -539,28 +539,6 @@ def export_session_pdf(
 
 
 # =============================================================================
-# Delete Session
-# =============================================================================
-
-@router.delete("/sessions/{session_id}")
-def delete_session(
-    session_id: str,
-    admin: str = Depends(verify_admin),
-    db: DBSession = Depends(get_db),
-):
-    """Delete a session and all related data."""
-    session = db.query(Session).filter(Session.id == session_id).first()
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    db.delete(session)
-    db.commit()
-    
-    return {"status": "deleted", "session_id": session_id}
-
-
-# =============================================================================
 # Bulk Operations
 # =============================================================================
 
@@ -572,10 +550,32 @@ def cleanup_old_sessions(
 ):
     """Delete sessions older than N days."""
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    
+
     count = db.query(Session).filter(Session.created_at < cutoff).count()
     db.query(Session).filter(Session.created_at < cutoff).delete()
     db.commit()
-    
+
     return {"deleted_count": count, "cutoff_date": cutoff.isoformat()}
+
+
+# =============================================================================
+# Delete Session
+# =============================================================================
+
+@router.delete("/sessions/{session_id}")
+def delete_session(
+    session_id: str,
+    admin: str = Depends(verify_admin),
+    db: DBSession = Depends(get_db),
+):
+    """Delete a session and all related data."""
+    session = db.query(Session).filter(Session.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    db.delete(session)
+    db.commit()
+
+    return {"status": "deleted", "session_id": session_id}
 
