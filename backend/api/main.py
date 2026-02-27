@@ -17,6 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 # Reconnectable streaming hub (does not depend on DB)
 from api.metrics import StreamMetrics, tracked_stream
@@ -418,14 +422,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — restrict origins to env-driven allowlist
+_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in _cors_origins],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+# Rate limiting
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["60/minute"],
+)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return StreamingResponse(
+        iter([f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded. Please try again later.'})}\n\n"]),
+        status_code=429,
+        media_type="text/event-stream",
+    )
 
 # Include admin router
 if admin_router:
