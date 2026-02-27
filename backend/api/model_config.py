@@ -225,14 +225,9 @@ def get_chat_model(
         )
 
     if provider == "anthropic":
-        api_key = (
-            api_keys_from_config.get("ANTHROPIC_API_KEY")
-            or os.getenv("ANTHROPIC_API_KEY")
-        )
-        return ChatOpenAI(
-            model=model_name,
-            api_key=SecretStr(api_key) if api_key else None,
-            **kwargs,
+        raise ValueError(
+            f"The 'anthropic:' provider prefix is not supported (langchain-anthropic "
+            f"is not installed). Use 'openrouter:anthropic/{model_name}' instead."
         )
 
     # Default: openai: prefix (or bare model name)

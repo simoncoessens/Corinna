@@ -7,7 +7,6 @@ import json
 import re
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
@@ -15,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 from service_categorizer.models import Classification, ObligationAnalysis, ComplianceReport
 from service_categorizer.obligations import get_obligations_for_classification
 from service_categorizer.state import ServiceCategorizerInputState, ServiceCategorizerState
+from tools.prompt_loader import create_prompt_loader
 
 try:
     # Available when running via backend/api (backend added to sys.path there)
@@ -71,19 +71,7 @@ def _get_dsa_legal_text(article_ref: int | str) -> dict[str, str] | None:
 # Prompt Loading
 # =============================================================================
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
-_jinja_env = Environment(
-    loader=FileSystemLoader(str(PROMPTS_DIR)),
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
-
-
-def load_prompt(template_name: str, **kwargs) -> str:
-    """Load and render a Jinja2 prompt template."""
-    template = _jinja_env.get_template(template_name)
-    return template.render(**kwargs)
+load_prompt = create_prompt_loader(Path(__file__).resolve().parent / "prompts")
 
 
 def _get_model(config: RunnableConfig | None = None):
@@ -164,23 +152,35 @@ async def classify_service(
         summary_long=summary_long,
     )
     
-    response = await model.ainvoke([HumanMessage(content=prompt)])
-    
+    default_classification = {
+        "territorial_scope": {"is_in_scope": False, "reasoning": "Classification failed"},
+        "service_classification": {
+            "is_intermediary": False,
+            "service_category": "Not Applicable",
+            "is_online_platform": False,
+            "is_marketplace": False,
+            "is_search_engine": False,
+        },
+        "size_designation": {"is_vlop_vlose": False},
+        "summary": "Classification could not be completed",
+    }
+
+    try:
+        response = await model.ainvoke([HumanMessage(content=prompt)])
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("classify_service LLM call failed: %s", e)
+        classification = {**default_classification, "summary": f"LLM error: {str(e)[:200]}"}
+        return {
+            "classification": classification,
+            "obligations": [],
+            "messages": [AIMessage(content="Classification failed due to LLM error.")],
+        }
+
     try:
         classification = _parse_json(str(response.content))
-    except json.JSONDecodeError:
-        classification = {
-            "territorial_scope": {"is_in_scope": False, "reasoning": "Parse error"},
-            "service_classification": {
-                "is_intermediary": False,
-                "service_category": "Not Applicable",
-                "is_online_platform": False,
-                "is_marketplace": False,
-                "is_search_engine": False,
-            },
-            "size_designation": {"is_vlop_vlose": False},
-            "summary": str(response.content)[:500]
-        }
+    except (json.JSONDecodeError, Exception):
+        classification = {**default_classification, "summary": str(response.content)[:500]}
     
     # Get applicable obligations based on classification
     svc = classification.get("service_classification", {})
@@ -289,9 +289,14 @@ async def generate_report(
         obligation_analyses=analyses,
     )
     
-    response = await model.ainvoke([HumanMessage(content=prompt)])
-    summary = str(response.content)
-    
+    try:
+        response = await model.ainvoke([HumanMessage(content=prompt)])
+        summary = str(response.content)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("generate_report LLM call failed: %s", e)
+        summary = f"Report generation failed: {str(e)[:200]}"
+
     # Build final report
     report = {
         "company_name": company_name,
@@ -299,9 +304,9 @@ async def generate_report(
         "obligations": analyses,
         "summary": summary,
     }
-    
+
     final_json = json.dumps(report, indent=2)
-    
+
     return {
         "final_report": final_json,
         "messages": [AIMessage(content=final_json)]

@@ -16,9 +16,12 @@ class MainAgentInputState(MessagesState):
 
 class MainAgentState(MessagesState):
     """Full state for the Main Agent workflow."""
-    
+
     # Frontend context passed from the UI (simple string for now)
     frontend_context: Optional[str] = None
-    
+
     # Explicit context mode for specialized behavior
     context_mode: Optional[Literal["review_findings", "obligations", "general"]] = None
+
+    # Iteration counter for the ReAct loop guard
+    iterations: int = 0

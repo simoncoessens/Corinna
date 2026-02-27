@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -23,25 +22,14 @@ _AGENTS_PATH = Path(__file__).resolve().parents[3]
 if str(_AGENTS_PATH) not in sys.path:
     sys.path.insert(0, str(_AGENTS_PATH))
 from tools import tavily_search_tool
+from tools.prompt_loader import create_prompt_loader
 
 
 # =============================================================================
 # Prompt Loading
 # =============================================================================
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
-_jinja_env = Environment(
-    loader=FileSystemLoader(str(PROMPTS_DIR)),
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
-
-
-def load_prompt(template_name: str, **kwargs) -> str:
-    """Load and render a Jinja2 prompt template."""
-    template = _jinja_env.get_template(template_name)
-    return template.render(**kwargs)
+load_prompt = create_prompt_loader(Path(__file__).resolve().parent / "prompts")
 
 
 # =============================================================================

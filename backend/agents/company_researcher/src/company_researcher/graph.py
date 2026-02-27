@@ -7,7 +7,6 @@ from typing import List, Literal
 from urllib.parse import urlparse
 import re
 
-from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
@@ -27,25 +26,14 @@ from company_researcher.state import (
     CompanyResearchState,
     QuestionResearchState,
 )
+from tools.prompt_loader import create_prompt_loader
 
 
 # =============================================================================
 # Prompt Loading
 # =============================================================================
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-
-_jinja_env = Environment(
-    loader=FileSystemLoader(str(PROMPTS_DIR)),
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
-
-
-def load_prompt(template_name: str, **kwargs) -> str:
-    """Load and render a Jinja2 prompt template."""
-    template = _jinja_env.get_template(template_name)
-    return template.render(**kwargs)
+load_prompt = create_prompt_loader(Path(__file__).resolve().parent / "prompts")
 
 
 def _infer_source_domain(raw_output: str, top_domain: str | None = None) -> str:
