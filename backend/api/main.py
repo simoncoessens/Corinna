@@ -462,12 +462,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware — restrict origins to env-driven allowlist
-_cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# CORS middleware — use CORS_ALLOWED_ORIGINS env var if set, otherwise allow all.
+# The app uses session IDs in request bodies (not cookies), so allow_credentials
+# is not needed and "*" is safe as a default.
+_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _cors_origins],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
