@@ -111,27 +111,10 @@ async def research_agent(
     state: QuestionResearchState, config: RunnableConfig | None = None
 ) -> dict:
     """Agent node that decides to search or finish."""
+    from api.model_config import get_chat_model
+
     cfg = Configuration.from_runnable_config(config) if config else Configuration()
-    
-    # Get model params
-    model_name = cfg.research_model.replace("openai:", "") if cfg.research_model.startswith("openai:") else cfg.research_model
-    api_key = get_api_key_for_model(cfg.research_model, config)
-    base_url = None
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    else:
-        base_url = os.getenv("OPENAI_BASE_URL")
-    
-    model_params = {
-        "model": model_name,
-    }
-    if api_key:
-        model_params["api_key"] = api_key
-    if base_url:
-        model_params["base_url"] = base_url
-    
-    model = ChatOpenAI(**model_params)
+    model = get_chat_model("research_model", config=config)
     tools = get_research_tools()
     model_with_tools = model.bind_tools(tools)
     
@@ -325,18 +308,9 @@ async def summarize_and_format(state: QuestionResearchState, config: RunnableCon
     if final_summary_tool_arg:
         raw_output += f"\n\nFINAL AGENT SUMMARY: {final_summary_tool_arg}"
 
-    cfg = Configuration.from_runnable_config(config) if config else Configuration()
-    # ... (Model setup same as above) ...
-    model_name = cfg.summarization_model.replace("openai:", "") if cfg.summarization_model.startswith("openai:") else cfg.summarization_model
-    api_key = get_api_key_for_model(cfg.summarization_model, config)
-    base_url = None
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    else:
-        base_url = os.getenv("OPENAI_BASE_URL")
-    
-    model = ChatOpenAI(model=model_name, api_key=api_key, base_url=base_url)
+    from api.model_config import get_chat_model
+
+    model = get_chat_model("summarization_model", config=config)
     
     prompt = load_prompt(
         "summarize.jinja",

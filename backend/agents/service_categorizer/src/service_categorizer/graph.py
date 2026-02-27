@@ -91,21 +91,9 @@ def load_prompt(template_name: str, **kwargs) -> str:
 
 def _get_model(config: RunnableConfig | None = None) -> ChatOpenAI:
     """Get configured LLM."""
-    api_key = None
-    base_url = None
-    if config:
-        api_keys = config.get("configurable", {}).get("apiKeys", {})
-        api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-        base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-    else:
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL")
-    
-    return ChatOpenAI(
-        model="deepseek-reasoner",
-        api_key=api_key,
-        base_url=base_url,
-    )
+    from api.model_config import get_chat_model
+
+    return get_chat_model("categorizer_model", config=config)
 
 
 def _parse_json(text: str) -> dict:

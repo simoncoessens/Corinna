@@ -166,15 +166,9 @@ async def run_agent(
     state: CompanyMatcherState, config: RunnableConfig | None = None
 ) -> dict:
     """LLM step that decides whether to call tools or produce a final answer."""
-    api_keys = (config or {}).get("configurable", {}).get("apiKeys", {})
-    api_key = api_keys.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    base_url = api_keys.get("OPENAI_BASE_URL") or os.getenv("OPENAI_BASE_URL")
+    from api.model_config import get_chat_model
 
-    model = ChatOpenAI(
-        model="deepseek-chat",
-        api_key=api_key,
-        base_url=base_url,
-    ).bind_tools(TOOLS)
+    model = get_chat_model("matcher_model", config=config).bind_tools(TOOLS)
 
     response = await model.ainvoke(state["messages"], config=config)
     return {"messages": [response]}
