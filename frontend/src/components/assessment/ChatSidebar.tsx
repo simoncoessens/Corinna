@@ -8,7 +8,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSessionId, API_BASE_URL } from "@/services/api";
+import { getSessionId } from "@/services/api";
+import { streamSSE } from "@/services/streaming";
+import { buildContextString } from "@/services/chatContext";
 import { MarkdownContent, LegalLoadingAnimation, ThinkingAnimation } from "@/components/ui";
 import type { StreamEvent } from "@/types/api";
 import type { Message } from "@/types/chat";
@@ -21,151 +23,6 @@ const reportSuggestions = [
   "What are the compliance deadlines?",
   "What are the penalties for non-compliance?",
 ];
-
-// Build the full context string from ChatContext
-function buildContextString(context: ChatContext): string {
-  const parts: string[] = [];
-
-  const phaseLabels: Record<ChatPhase, string> = {
-    company_match: "Company Lookup",
-    deep_research: "Deep Research in Progress",
-    review_scope: "Reviewing Territorial scope",
-    review_size: "Reviewing Company Size",
-    review_type: "Reviewing Service Type",
-    classify: "Service Classification",
-    report: "Compliance Report",
-  };
-
-  parts.push(`Current Step: ${phaseLabels[context.phase]}`);
-
-  if (context.visibleUi) {
-    const ui = context.visibleUi;
-
-    if (ui.app) {
-      parts.push("\n--- Visible UI: App State ---");
-      parts.push(`Current phase: ${ui.app.currentPhase}`);
-      if (ui.app.researchStep)
-        parts.push(`Research step: ${ui.app.researchStep}`);
-      if (ui.app.isManualEntry !== undefined) {
-        parts.push(`Manual entry mode: ${ui.app.isManualEntry ? "Yes" : "No"}`);
-      }
-      if (ui.app.completedPhases && ui.app.completedPhases.length > 0) {
-        parts.push(`Completed phases: ${ui.app.completedPhases.join(", ")}`);
-      }
-    }
-
-    if (ui.report) {
-      parts.push("\n--- Visible UI: Compliance Report ---");
-      parts.push(`Active tab: ${ui.report.activeTab}`);
-      if (ui.report.obligationsFilter) {
-        parts.push(`Obligations filter: ${ui.report.obligationsFilter}`);
-      }
-      if (ui.report.selectedObligation) {
-        const o = ui.report.selectedObligation;
-        parts.push(`Selected obligation: Article ${o.article} — ${o.title}`);
-        parts.push(`Applies: ${o.applies ? "Yes" : "No"}`);
-        parts.push(`Implications: ${o.implications}`);
-        if (o.action_items?.length) {
-          parts.push("Action items:");
-          o.action_items.forEach((a) => parts.push(`- ${a}`));
-        }
-      }
-      if (
-        ui.report.visibleObligations &&
-        ui.report.visibleObligations.length > 0
-      ) {
-        parts.push("Visible obligations list:");
-        ui.report.visibleObligations.forEach((o) =>
-          parts.push(
-            `- Article ${o.article}: ${o.title} (applies=${o.applies}, action_items=${o.action_items_count})`
-          )
-        );
-      }
-    }
-  }
-
-  if (context.companyName) {
-    parts.push(`Company: ${context.companyName}`);
-    if (context.companyUrl) {
-      parts.push(`Website: ${context.companyUrl}`);
-    }
-  }
-
-  if (context.researchData) {
-    const { geographicalScope, companySize, serviceType } =
-      context.researchData;
-
-    if (geographicalScope && geographicalScope.length > 0) {
-      parts.push("\n--- Territorial scope Findings ---");
-      geographicalScope.forEach((item) => {
-        parts.push(`Q: ${item.question}`);
-        parts.push(`A: ${item.answer} (${item.confidence} confidence)`);
-      });
-    }
-
-    if (companySize && companySize.length > 0) {
-      parts.push("\n--- Company Size Findings ---");
-      companySize.forEach((item) => {
-        parts.push(`Q: ${item.question}`);
-        parts.push(`A: ${item.answer} (${item.confidence} confidence)`);
-      });
-    }
-
-    if (serviceType && serviceType.length > 0) {
-      parts.push("\n--- Service Type Findings ---");
-      serviceType.forEach((item) => {
-        parts.push(`Q: ${item.question}`);
-        parts.push(`A: ${item.answer} (${item.confidence} confidence)`);
-      });
-    }
-  }
-
-  if (context.classificationData) {
-    const c = context.classificationData;
-    parts.push("\n--- DSA Classification ---");
-    if (c.serviceCategory) {
-      parts.push(`Service Category: ${c.serviceCategory}`);
-    }
-    if (c.isIntermediary !== undefined) {
-      parts.push(`Is Intermediary Service: ${c.isIntermediary ? "Yes" : "No"}`);
-    }
-    if (c.isOnlinePlatform !== undefined) {
-      parts.push(`Is Online Platform: ${c.isOnlinePlatform ? "Yes" : "No"}`);
-    }
-    if (c.isMarketplace !== undefined) {
-      parts.push(`Is Marketplace: ${c.isMarketplace ? "Yes" : "No"}`);
-    }
-    if (c.isSearchEngine !== undefined) {
-      parts.push(`Is Search Engine: ${c.isSearchEngine ? "Yes" : "No"}`);
-    }
-    if (c.isVLOP !== undefined) {
-      parts.push(`Is VLOP/VLOSE: ${c.isVLOP ? "Yes" : "No"}`);
-    }
-    if (c.smeExemption !== undefined) {
-      parts.push(
-        `SME Exemption: ${c.smeExemption ? "Eligible" : "Not Eligible"}`
-      );
-    }
-  }
-
-  if (context.complianceData) {
-    const comp = context.complianceData;
-    parts.push("\n--- Compliance Summary ---");
-    if (
-      comp.applicableObligations !== undefined &&
-      comp.totalObligations !== undefined
-    ) {
-      parts.push(
-        `Applicable Obligations: ${comp.applicableObligations} out of ${comp.totalObligations}`
-      );
-    }
-    if (comp.summary) {
-      parts.push(`Summary: ${comp.summary}`);
-    }
-  }
-
-  return parts.join("\n");
-}
 
 interface ChatSidebarProps {
   context: ChatContext;
@@ -253,72 +110,34 @@ export function ChatSidebar({
       setStreamingContent("");
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/agents/main_agent/stream`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: userMessage.content,
-              frontend_context: fullContext,
-              context_mode: contextMode,
-              session_id: getSessionId(),
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
-
-        if (!response.body) {
-          throw new Error("No response body");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
         let fullContent = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              try {
-                const event = JSON.parse(data) as StreamEvent;
-
-                switch (event.type) {
-                  case "token":
-                    fullContent += event.content;
-                    setStreamingContent(fullContent);
-                    if (fullContent) {
-                      setLastTool(null);
-                    }
-                    break;
-                  case "tool_start":
-                    setCurrentTool(event.name);
-                    setLastTool(event.name);
-                    break;
-                  case "tool_end":
-                    setCurrentTool(null);
-                    break;
-                  case "error":
-                  case "done":
-                    setCurrentTool(null);
-                    setLastTool(null);
-                    break;
-                }
-              } catch {
-                // Skip invalid JSON
+        for await (const event of streamSSE("/agents/main_agent/stream", {
+          message: userMessage.content,
+          frontend_context: fullContext,
+          context_mode: contextMode,
+          session_id: getSessionId(),
+        })) {
+          switch (event.type) {
+            case "token":
+              fullContent += event.content;
+              setStreamingContent(fullContent);
+              if (fullContent) {
+                setLastTool(null);
               }
-            }
+              break;
+            case "tool_start":
+              setCurrentTool(event.name);
+              setLastTool(event.name);
+              break;
+            case "tool_end":
+              setCurrentTool(null);
+              break;
+            case "error":
+            case "done":
+              setCurrentTool(null);
+              setLastTool(null);
+              break;
           }
         }
 

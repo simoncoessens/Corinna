@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileSearch, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSessionId, API_BASE_URL } from "@/services/api";
+import { getSessionId } from "@/services/api";
+import { streamSSE } from "@/services/streaming";
 import type {
   StreamEvent,
   ResultEvent,
@@ -362,132 +363,83 @@ export function DeepResearch({
       }
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/agents/company_researcher/stream`,
+        for await (const event of streamSSE(
+          "/agents/company_researcher/stream",
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              company_name: companyName,
-              top_domain: topDomain,
-              summary_long: summaryLong,
-              session_id: getSessionId(),
-            }),
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) {
-          const bodyText = await response.text().catch(() => "");
-          const detail = bodyText ? bodyText.slice(0, 500) : "";
-          throw new Error(
-            detail
-              ? `API Error: ${response.status} - ${detail}`
-              : `API Error: ${response.status}`
-          );
-        }
-
-        if (!response.body) {
-          throw new Error("No response body");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const data = line.slice(6).trim();
-
-              try {
-                const event = JSON.parse(data) as StreamEvent;
-
-                switch (event.type) {
-                  case "tool_end": {
-                    const toolEndEvent = event as ToolEndEvent;
-                    if (
-                      toolEndEvent.sources &&
-                      toolEndEvent.sources.length > 0
-                    ) {
-                      queueSources(toolEndEvent.sources);
-                      toolEndEvent.sources.forEach((s) =>
-                        seenUrlsRef.current.add(s.url)
-                      );
-                      setTotalSourceCount(seenUrlsRef.current.size);
-                      if (toolEndEvent.name === "web_search") {
-                        searchCountRef.current++;
-                      }
-                    }
-                    break;
-                  }
-                  case "llm_start":
-                    llmCountRef.current++;
-                    if (
-                      searchCountRef.current >= 30 &&
-                      !researchPhaseComplete.current
-                    ) {
-                      if (llmCountRef.current > searchCountRef.current) {
-                        researchPhaseComplete.current = true;
-                        setPhase("summarization");
-                      }
-                    }
-                    break;
-                  case "node_start":
-                    if (event.chain?.includes("finalize")) {
-                      setPhase("finalizing");
-                    }
-                    break;
-                  case "result": {
-                    // Guard against duplicate result events or replays.
-                    if (completedRef.current) break;
-                    completedRef.current = true;
-
-                    const resultData = (
-                      event as ResultEvent<CompanyResearchResult>
-                    ).data;
-                    setPhase("finalizing");
-                    // Clear persisted state since research is complete
-                    if (typeof window !== "undefined") {
-                      sessionStorage.removeItem(RESEARCH_PERSISTENCE_KEY);
-                    }
-                    setTimeout(() => onCompleteRef.current(resultData), 500);
-                    break;
-                  }
-                  case "error":
-                    if (!completedRef.current) {
-                      const message = (event as { message?: unknown }).message;
-                      onErrorRef.current(
-                        typeof message === "string" && message.trim()
-                          ? message
-                          : "Unknown error"
-                      );
-                    }
-                    break;
-                  case "done":
-                    // End the stream loop immediately.
-                    if (!completedRef.current) {
-                      onErrorRef.current(
-                        "Research completed but no result was returned."
-                      );
-                    }
-                    return;
+            company_name: companyName,
+            top_domain: topDomain,
+            summary_long: summaryLong,
+            session_id: getSessionId(),
+          },
+          controller.signal,
+        )) {
+          switch (event.type) {
+            case "tool_end": {
+              const toolEndEvent = event as ToolEndEvent;
+              if (
+                toolEndEvent.sources &&
+                toolEndEvent.sources.length > 0
+              ) {
+                queueSources(toolEndEvent.sources);
+                toolEndEvent.sources.forEach((s) =>
+                  seenUrlsRef.current.add(s.url)
+                );
+                setTotalSourceCount(seenUrlsRef.current.size);
+                if (toolEndEvent.name === "web_search") {
+                  searchCountRef.current++;
                 }
-              } catch {
-                // Skip invalid JSON
               }
+              break;
             }
+            case "llm_start":
+              llmCountRef.current++;
+              if (
+                searchCountRef.current >= 30 &&
+                !researchPhaseComplete.current
+              ) {
+                if (llmCountRef.current > searchCountRef.current) {
+                  researchPhaseComplete.current = true;
+                  setPhase("summarization");
+                }
+              }
+              break;
+            case "node_start":
+              if (event.chain?.includes("finalize")) {
+                setPhase("finalizing");
+              }
+              break;
+            case "result": {
+              if (completedRef.current) break;
+              completedRef.current = true;
+
+              const resultData = (
+                event as ResultEvent<CompanyResearchResult>
+              ).data;
+              setPhase("finalizing");
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem(RESEARCH_PERSISTENCE_KEY);
+              }
+              setTimeout(() => onCompleteRef.current(resultData), 500);
+              break;
+            }
+            case "error":
+              if (!completedRef.current) {
+                const message = (event as { message?: unknown }).message;
+                onErrorRef.current(
+                  typeof message === "string" && message.trim()
+                    ? message
+                    : "Unknown error"
+                );
+              }
+              break;
+            case "done":
+              if (!completedRef.current) {
+                onErrorRef.current(
+                  "Research completed but no result was returned."
+                );
+              }
+              return;
           }
-        } finally {
-          reader.releaseLock();
         }
       } catch (err) {
         // Ignore abort errors (happen on unmount / strict mode)

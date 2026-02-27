@@ -4,9 +4,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, X, MessageCircleQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_BASE_URL } from "@/services/api";
+import { streamSSE } from "@/services/streaming";
 import { MarkdownContent } from "@/components/ui";
-import type { StreamEvent } from "@/types/api";
 import type { Message } from "@/types/chat";
 import { toolLabels } from "@/types/chat";
 
@@ -185,62 +184,27 @@ export function AssistantPopup({
     setStreamingContent("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/agents/main_agent/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          frontend_context: context,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      if (!response.body) {
-        throw new Error("No response body");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let fullContent = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6).trim();
-            try {
-              const event = JSON.parse(data) as StreamEvent;
-
-              switch (event.type) {
-                case "token":
-                  fullContent += event.content;
-                  setStreamingContent(fullContent);
-                  break;
-                case "tool_start":
-                  setCurrentTool(event.name);
-                  break;
-                case "tool_end":
-                  setCurrentTool(null);
-                  break;
-                case "error":
-                case "done":
-                  setCurrentTool(null);
-                  break;
-              }
-            } catch {
-              // Skip invalid JSON
-            }
-          }
+      for await (const event of streamSSE("/agents/main_agent/stream", {
+        message: userMessage.content,
+        frontend_context: context,
+      })) {
+        switch (event.type) {
+          case "token":
+            fullContent += event.content;
+            setStreamingContent(fullContent);
+            break;
+          case "tool_start":
+            setCurrentTool(event.name);
+            break;
+          case "tool_end":
+            setCurrentTool(null);
+            break;
+          case "error":
+          case "done":
+            setCurrentTool(null);
+            break;
         }
       }
 

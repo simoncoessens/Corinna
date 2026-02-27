@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn, extractDomain } from "@/lib/utils";
-import { getSessionId, API_BASE_URL } from "@/services/api";
+import { getSessionId } from "@/services/api";
+import { streamSSE } from "@/services/streaming";
 import type {
   CompanyMatch,
   CompanyMatchResult,
@@ -339,84 +340,47 @@ export function CompanyMatcher({
       setIsSearching(true);
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/agents/company_matcher/stream`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              company_name: companyName.trim(),
-              country_of_establishment: countryOfEstablishment.trim(),
-              session_id: getSessionId(),
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.status}`);
-        }
-
-        if (!response.body) {
-          throw new Error("No response body");
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              try {
-                const event = JSON.parse(data) as StreamEvent;
-
-                switch (event.type) {
-                  case "tool_start":
-                    if (event.name === "web_search") {
-                      setIsSearching(true);
-                    }
-                    break;
-                  case "tool_end":
-                    const toolEndEvent = event as ToolEndEvent;
-                    if (
-                      toolEndEvent.name === "web_search" &&
-                      toolEndEvent.sources
-                    ) {
-                      queueSources(toolEndEvent.sources);
-                    }
-                    setIsSearching(false);
-                    break;
-                  case "result":
-                    const resultData = (
-                      event as ResultEvent<CompanyMatchResult>
-                    ).data;
-                    setResult(resultData);
-                    if (resultData.exact_match) {
-                      setSelectedCompany(resultData.exact_match);
-                      setState("found");
-                    } else if (resultData.suggestions?.length > 0) {
-                      setState("found");
-                    } else {
-                      setState("not_found");
-                    }
-                    break;
-                  case "error":
-                    setError(event.message);
-                    setState("error");
-                    break;
-                }
-              } catch {
-                // Skip invalid JSON
+        for await (const event of streamSSE("/agents/company_matcher/stream", {
+          company_name: companyName.trim(),
+          country_of_establishment: countryOfEstablishment.trim(),
+          session_id: getSessionId(),
+        })) {
+          switch (event.type) {
+            case "tool_start":
+              if (event.name === "web_search") {
+                setIsSearching(true);
               }
+              break;
+            case "tool_end": {
+              const toolEndEvent = event as ToolEndEvent;
+              if (
+                toolEndEvent.name === "web_search" &&
+                toolEndEvent.sources
+              ) {
+                queueSources(toolEndEvent.sources);
+              }
+              setIsSearching(false);
+              break;
             }
+            case "result": {
+              const resultData = (
+                event as ResultEvent<CompanyMatchResult>
+              ).data;
+              setResult(resultData);
+              if (resultData.exact_match) {
+                setSelectedCompany(resultData.exact_match);
+                setState("found");
+              } else if (resultData.suggestions?.length > 0) {
+                setState("found");
+              } else {
+                setState("not_found");
+              }
+              break;
+            }
+            case "error":
+              setError(event.message);
+              setState("error");
+              break;
           }
         }
       } catch (err) {
