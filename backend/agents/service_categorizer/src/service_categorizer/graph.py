@@ -4,20 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 
 from service_categorizer.models import Classification, ObligationAnalysis, ComplianceReport
 from service_categorizer.obligations import get_obligations_for_classification
 from service_categorizer.state import ServiceCategorizerInputState, ServiceCategorizerState
-
 
 try:
     # Available when running via backend/api (backend added to sys.path there)
@@ -89,7 +86,7 @@ def load_prompt(template_name: str, **kwargs) -> str:
     return template.render(**kwargs)
 
 
-def _get_model(config: RunnableConfig | None = None) -> ChatOpenAI:
+def _get_model(config: RunnableConfig | None = None):
     """Get configured LLM."""
     from api.model_config import get_chat_model
 
@@ -159,7 +156,7 @@ async def classify_service(
     top_domain = state.get("top_domain")
     summary_long = state.get("summary_long")
     model = _get_model(config)
-    
+
     prompt = load_prompt(
         "classify.jinja",
         company_profile=json.dumps(profile, indent=2),

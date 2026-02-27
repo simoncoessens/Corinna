@@ -14,8 +14,8 @@ class TestCompanyResearcherConfiguration:
         
         config = Configuration()
         
-        assert config.research_model == "openai:deepseek-chat"
-        assert config.summarization_model == "openai:deepseek-reasoner"
+        assert config.research_model == "openrouter:moonshotai/kimi-k2-thinking"
+        assert config.summarization_model == "openrouter:moonshotai/kimi-k2-thinking"
         assert config.max_research_iterations == 4
         assert config.max_search_results == 10
         assert config.max_search_queries == 1
@@ -38,7 +38,7 @@ class TestCompanyResearcherConfiguration:
         assert config.max_research_iterations == 3
         assert config.max_search_results == 5
         # Defaults should still apply for unset values
-        assert config.research_model == "openai:deepseek-chat"
+        assert config.research_model == "openrouter:moonshotai/kimi-k2-thinking"
 
     def test_configuration_from_env_vars(self):
         """Test Configuration.from_runnable_config with env vars."""
@@ -60,8 +60,8 @@ class TestCompanyResearcherConfiguration:
         config = Configuration.from_runnable_config(None)
         
         # Should use defaults
-        assert config.research_model == "openai:deepseek-chat"
-        assert config.max_research_iterations == 1
+        assert config.research_model == "openrouter:moonshotai/kimi-k2-thinking"
+        assert config.max_research_iterations == 4
 
     def test_configuration_custom_values(self):
         """Test Configuration with custom values."""

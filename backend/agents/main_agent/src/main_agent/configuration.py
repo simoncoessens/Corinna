@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field
 class Configuration(BaseModel):
     """Configuration for the Main Agent (Corinna)."""
 
-    # Model settings - using DeepSeek by default (like other agents)
+    # Model settings
     main_model: str = Field(
-        default="openai:deepseek-chat",
+        default="openrouter:moonshotai/kimi-k2",
         metadata={"description": "Primary model for reasoning and responses"}
     )
     # ReAct agent settings

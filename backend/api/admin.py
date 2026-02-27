@@ -6,13 +6,18 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import cast, Date, desc, func
 from sqlalchemy.orm import Session as DBSession
 
 from database import ChatMessage, Session, SessionStep, get_db
 from database.models import SessionStatus
+from api.model_config import (
+    AVAILABLE_MODELS,
+    get_model_config,
+    update_model_config,
+)
 
 # =============================================================================
 # Authentication
@@ -578,4 +583,34 @@ def delete_session(
     db.commit()
 
     return {"status": "deleted", "session_id": session_id}
+
+
+# =============================================================================
+# Model Settings
+# =============================================================================
+
+@router.get("/settings/models")
+def get_model_settings(admin: str = Depends(verify_admin)):
+    """Return current model configuration and available models."""
+    return {
+        "current": get_model_config(),
+        "available_models": AVAILABLE_MODELS,
+    }
+
+
+@router.put("/settings/models")
+def update_model_settings(
+    updates: dict = Body(...),
+    admin: str = Depends(verify_admin),
+):
+    """Update model configuration (partial updates allowed)."""
+    try:
+        updated = update_model_config(updates)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {
+        "current": updated,
+        "available_models": AVAILABLE_MODELS,
+    }
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-import os
 from pathlib import Path
 from typing import List, Literal
 from urllib.parse import urlparse
@@ -12,7 +10,6 @@ import re
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Send
@@ -30,7 +27,6 @@ from company_researcher.state import (
     CompanyResearchState,
     QuestionResearchState,
 )
-from company_researcher.utils import get_api_key_for_model
 
 
 # =============================================================================
@@ -146,6 +142,7 @@ async def research_agent(
     
     response = await model_with_tools.ainvoke(messages)
     return {"messages": [response]}
+
 
 
 # =============================================================================

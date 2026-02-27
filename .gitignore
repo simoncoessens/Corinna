@@ -57,6 +57,9 @@ htmlcov/
 # Pickle artifacts
 *.pckl
 
+# Runtime model config (admin-managed)
+backend/model_config.json
+
 # Video files
 video/
 *.mov

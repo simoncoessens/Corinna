@@ -111,6 +111,24 @@ interface ChatMessage {
   sources_cited: { url: string; title?: string }[] | null;
 }
 
+interface ModelOption {
+  id: string;
+  label: string;
+}
+
+interface ModelConfig {
+  chat_model: string;
+  research_model: string;
+  summarization_model: string;
+  matcher_model: string;
+  categorizer_model: string;
+}
+
+interface ModelSettingsResponse {
+  current: ModelConfig;
+  available_models: ModelOption[];
+}
+
 // =============================================================================
 // Auth Hook
 // =============================================================================
@@ -1392,6 +1410,13 @@ export default function AdminDashboard() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Model settings state
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [savingModels, setSavingModels] = useState<string | null>(null);
+  const [modelSaveSuccess, setModelSaveSuccess] = useState<string | null>(null);
+
   const fetchStats = useCallback(async () => {
     try {
       const response = await fetch(
@@ -1429,6 +1454,49 @@ export default function AdminDashboard() {
       }
     }
   }, [daysFilter, authHeader, logout]);
+
+  const fetchModelConfig = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/settings/models`, {
+        headers: authHeader,
+      });
+      if (response.ok) {
+        const data: ModelSettingsResponse = await response.json();
+        setModelConfig(data.current);
+        setAvailableModels(data.available_models);
+      }
+    } catch {
+      // Silently fail — model settings are optional
+    }
+  }, [authHeader]);
+
+  const saveModelConfig = useCallback(
+    async (key: string, value: string) => {
+      setSavingModels(key);
+      setModelSaveSuccess(null);
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/settings/models`, {
+          method: "PUT",
+          headers: {
+            ...authHeader,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ [key]: value }),
+        });
+        if (response.ok) {
+          const data: ModelSettingsResponse = await response.json();
+          setModelConfig(data.current);
+          setModelSaveSuccess(key);
+          setTimeout(() => setModelSaveSuccess(null), 2000);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setSavingModels(null);
+      }
+    },
+    [authHeader]
+  );
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -1569,6 +1637,7 @@ export default function AdminDashboard() {
     if (isAuthenticated) {
       fetchStats();
       fetchSessions();
+      fetchModelConfig();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
@@ -1688,6 +1757,145 @@ export default function AdminDashboard() {
                 icon={DollarSign}
                 subtitle={`${stats.total_llm_calls} LLM / ${stats.total_search_calls} searches`}
               />
+            </div>
+          )}
+
+          {/* Model Settings Panel */}
+          {modelConfig && availableModels.length > 0 && (
+            <div className="bg-white border border-[#e7e5e4] mb-6">
+              <button
+                onClick={() => setModelSettingsOpen(!modelSettingsOpen)}
+                className="w-full px-5 py-4 flex items-center justify-between hover:bg-[#fafaf9] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Zap className="w-4 h-4 text-[#78716c]" />
+                  <span className="font-mono text-xs uppercase tracking-wider text-[#78716c]">
+                    Model Settings
+                  </span>
+                </div>
+                <ChevronRight
+                  className={cn(
+                    "w-4 h-4 text-[#a8a29e] transition-transform",
+                    modelSettingsOpen && "rotate-90"
+                  )}
+                />
+              </button>
+              <AnimatePresence>
+                {modelSettingsOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-5 pb-5 border-t border-[#e7e5e4]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                        {/* Chat Agent Group */}
+                        <div>
+                          <h4 className="font-mono text-xs uppercase tracking-wider text-[#78716c] mb-3">
+                            Chat Agent
+                          </h4>
+                          <div className="space-y-3">
+                            {(
+                              [
+                                {
+                                  key: "chat_model" as keyof ModelConfig,
+                                  label: "Chat Model",
+                                },
+                              ] as const
+                            ).map(({ key, label }) => (
+                              <div key={key}>
+                                <label className="block font-sans text-xs text-[#78716c] mb-1">
+                                  {label}
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={modelConfig[key]}
+                                    onChange={(e) =>
+                                      saveModelConfig(key, e.target.value)
+                                    }
+                                    disabled={savingModels === key}
+                                    className="flex-1 h-9 px-3 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a] disabled:opacity-50"
+                                  >
+                                    {availableModels.map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {savingModels === key && (
+                                    <Loader2 className="w-4 h-4 animate-spin text-[#78716c]" />
+                                  )}
+                                  {modelSaveSuccess === key && (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Research Agents Group */}
+                        <div>
+                          <h4 className="font-mono text-xs uppercase tracking-wider text-[#78716c] mb-3">
+                            Research Agents
+                          </h4>
+                          <div className="space-y-3">
+                            {(
+                              [
+                                {
+                                  key: "matcher_model" as keyof ModelConfig,
+                                  label: "Company Matcher",
+                                },
+                                {
+                                  key: "research_model" as keyof ModelConfig,
+                                  label: "Research Model",
+                                },
+                                {
+                                  key: "summarization_model" as keyof ModelConfig,
+                                  label: "Summarization Model",
+                                },
+                                {
+                                  key: "categorizer_model" as keyof ModelConfig,
+                                  label: "Service Categorizer",
+                                },
+                              ] as const
+                            ).map(({ key, label }) => (
+                              <div key={key}>
+                                <label className="block font-sans text-xs text-[#78716c] mb-1">
+                                  {label}
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={modelConfig[key]}
+                                    onChange={(e) =>
+                                      saveModelConfig(key, e.target.value)
+                                    }
+                                    disabled={savingModels === key}
+                                    className="flex-1 h-9 px-3 bg-[#fafaf9] border border-[#e7e5e4] font-mono text-xs focus:outline-none focus:border-[#0a0a0a] disabled:opacity-50"
+                                  >
+                                    {availableModels.map((m) => (
+                                      <option key={m.id} value={m.id}>
+                                        {m.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {savingModels === key && (
+                                    <Loader2 className="w-4 h-4 animate-spin text-[#78716c]" />
+                                  )}
+                                  {modelSaveSuccess === key && (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 

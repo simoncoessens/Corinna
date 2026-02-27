@@ -27,7 +27,9 @@ def get_api_key_for_model(model_name: str, config: Optional[RunnableConfig] = No
         return os.getenv("OPENAI_API_KEY")
     elif model_name.startswith("anthropic:"):
         return os.getenv("ANTHROPIC_API_KEY")
-    
+    elif model_name.startswith("openrouter:"):
+        return os.getenv("OPENROUTER_API_KEY")
+
     return None
 
 

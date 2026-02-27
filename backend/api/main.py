@@ -25,6 +25,7 @@ from slowapi.util import get_remote_address
 # Reconnectable streaming hub (does not depend on DB)
 from api.metrics import StreamMetrics, tracked_stream
 from api.stream_hub import stream_hub, StreamJob
+from api.model_config import get_runnable_configurable
 
 # Logger (uvicorn will pick this up)
 logger = logging.getLogger("dsa_copilot.api")
@@ -106,6 +107,15 @@ except ImportError as e:
     DB_AVAILABLE = False
     admin_router = None
     tracker = None
+
+
+# =============================================================================
+# Model Configuration Helper
+# =============================================================================
+
+def _make_config() -> Dict[str, Any]:
+    """Build a RunnableConfig with the current admin-selected models."""
+    return {"configurable": get_runnable_configurable()}
 
 
 # =============================================================================
@@ -324,11 +334,21 @@ async def stream_with_final_result(
 
     def observe_event(event: Dict[str, Any]) -> None:
         nonlocal final_output
-        # Prefer the top-level LangGraph output (root run has no parent_ids)
-        if event.get("event") == "on_chain_end" and not event.get("parent_ids"):
+        evt_type = event.get("event")
+        parent_ids = event.get("parent_ids")
+        # Capture output from any on_chain_end event that carries a dict with
+        # the keys we care about (e.g. final_report).  Prefer the root run
+        # (no parent_ids), but fall back to any chain_end that has output.
+        if evt_type == "on_chain_end":
             output = event.get("data", {}).get("output")
             if isinstance(output, dict):
-                final_output = output
+                if not parent_ids:
+                    # Root-level graph output — always prefer this.
+                    final_output = output
+                elif final_output is None:
+                    # Fallback: capture first matching output in case root
+                    # event structure changes across LangGraph versions.
+                    final_output = output
 
     # Stream events first (without done), so we can emit result before done.
     async for chunk in stream_agent_events(
@@ -341,6 +361,10 @@ async def stream_with_final_result(
         yield chunk
 
     # Emit final structured result if we managed to capture it.
+    if extract_result and final_output is None:
+        logger.warning(
+            "stream_with_final_result: no final_output captured from graph events"
+        )
     if extract_result and final_output is not None:
         try:
             extracted = extract_result(final_output)
@@ -573,6 +597,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
             stream = stream_with_final_result(
                 company_matcher,
                 input_state,
+                config=_make_config(),
                 extract_result=local_extract_result,
             )
 
@@ -612,6 +637,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
     stream = stream_with_final_result(
         company_matcher,
         input_state,
+        config=_make_config(),
         extract_result=extract_result,
     )
 
@@ -644,7 +670,7 @@ async def company_matcher_invoke(request: CompanyMatcherRequest):
             "messages": [HumanMessage(content=request.company_name.strip())],
             "country_of_establishment": request.country_of_establishment.strip(),
         }
-        result = await company_matcher.ainvoke(input_state)
+        result = await company_matcher.ainvoke(input_state, config=_make_config())
         match_result = result.get("match_result", "")
         
         if match_result:
@@ -708,6 +734,12 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
 
                 def extract_result(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                     final_report = result.get("final_report", "")
+                    if not final_report:
+                        logger.warning(
+                            "extract_result: no final_report in graph output. Keys: %s",
+                            list(result.keys()),
+                        )
+                        return None
                     if final_report:
                         try:
                             parsed = json.loads(final_report)
@@ -740,6 +772,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                 stream = stream_with_final_result(
                     company_researcher,
                     input_state,
+                    config=_make_config(),
                     extract_result=extract_result,
                 )
 
@@ -786,7 +819,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         "summary_long": (request.summary_long or "").strip() or None,
     }
 
-    stream = stream_with_final_result(company_researcher, input_state)
+    stream = stream_with_final_result(company_researcher, input_state, config=_make_config())
 
     return StreamingResponse(
         stream,
@@ -814,7 +847,7 @@ async def company_researcher_invoke(request: CompanyResearcherRequest):
             "top_domain": (request.top_domain or "").strip() or None,
             "summary_long": (request.summary_long or "").strip() or None,
         }
-        result = await company_researcher.ainvoke(input_state)
+        result = await company_researcher.ainvoke(input_state, config=_make_config())
         final_report = result.get("final_report", "")
         
         if final_report:
@@ -886,7 +919,8 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
                 return None
         return None
     
-    stream = stream_with_final_result(service_categorizer, input_state, extract_result=extract_result)
+    stream = stream_with_final_result(service_categorizer, input_state, config=_make_config(), extract_result=extract_result)
+
 
     return StreamingResponse(
         tracked_stream(stream, tracker=tracker if DB_AVAILABLE else None, step_id=step_id),
@@ -910,7 +944,7 @@ async def service_categorizer_invoke(request: ServiceCategorizerRequest):
             "top_domain": (request.top_domain or "").strip() or None,
             "summary_long": (request.summary_long or "").strip() or None,
         }
-        result = await service_categorizer.ainvoke(input_state)
+        result = await service_categorizer.ainvoke(input_state, config=_make_config())
         final_report = result.get("final_report", "")
         
         if final_report:
@@ -974,7 +1008,7 @@ async def main_agent_stream(request: MainAgentRequest):
             return {"response": content}
         return None
 
-    stream = stream_with_final_result(main_agent, input_state, extract_result=extract_result)
+    stream = stream_with_final_result(main_agent, input_state, config=_make_config(), extract_result=extract_result)
 
     async def metrics_stream():
         async for chunk in stream:
@@ -1006,7 +1040,7 @@ async def main_agent_invoke(request: MainAgentRequest):
             "frontend_context": request.frontend_context,
             "context_mode": request.context_mode,
         }
-        result = await main_agent.ainvoke(input_state)
+        result = await main_agent.ainvoke(input_state, config=_make_config())
         messages = result.get("messages", [])
         
         if messages:

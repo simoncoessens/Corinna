@@ -38,15 +38,10 @@ RUN apt-get update && apt-get install -y \
     libxml2 \
     libxslt1.1 \
     curl \
-    redis-server \
-    supervisor \
-    && rm -rf /var/lib/apt/lists/*
+&& rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
-
-# Redis persistence directory (mount a persistent disk to /data in hosting)
-RUN mkdir -p /data
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
@@ -58,10 +53,7 @@ COPY . .
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8001 \
-    REDIS_URL=redis://localhost:6379/0
-
-VOLUME ["/data"]
+    PORT=8001
 
 # Expose port (Render will set PORT env var)
 EXPOSE $PORT
@@ -69,8 +61,8 @@ EXPOSE $PORT
 # Health check (using curl which is lightweight)
 # Note: Render also has its own health check mechanism
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run redis + api in one container
-CMD ["supervisord", "-c", "/app/supervisord.conf"]
+# Run uvicorn directly
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT} --workers 4
 

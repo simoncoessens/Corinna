@@ -5,14 +5,12 @@ ReAct agent with web search and DSA knowledge base retrieval.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 

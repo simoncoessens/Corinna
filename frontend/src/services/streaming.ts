@@ -4,7 +4,7 @@
  * pattern found in 6 components.
  */
 
-import { API_BASE_URL } from "@/services/api";
+import { getApiBaseUrl } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
 
 /**
@@ -19,7 +19,7 @@ export async function* streamSSE(
   body: unknown,
   signal?: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getApiBaseUrl()}${endpoint}`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
