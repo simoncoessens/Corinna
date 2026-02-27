@@ -444,8 +444,6 @@ export function CompanyMatcher({
   };
 
   const handleManualEntry = () => {
-    if (!companyName.trim() || !countryOfEstablishment.trim()) return;
-
     if (onManualEntry) {
       onManualEntry(companyName.trim(), countryOfEstablishment.trim());
     }
@@ -671,7 +669,6 @@ export function CompanyMatcher({
                 onClick={handleManualEntry}
                 variant="outline"
                 size="lg"
-                disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                 className="w-full border-[#d6d3d1] hover:border-[#0a0a0a]"
               >
                 <PenLine className="w-4 h-4" />
@@ -1013,7 +1010,6 @@ export function CompanyMatcher({
                   onClick={handleManualEntry}
                   variant="ghost"
                   size="lg"
-                  disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                   className="w-full text-[#78716c] hover:text-[#0a0a0a]"
                 >
                   <PenLine className="w-4 h-4" />
@@ -1074,7 +1070,6 @@ export function CompanyMatcher({
                   onClick={handleManualEntry}
                   variant="primary"
                   size="lg"
-                  disabled={!companyName.trim() || !countryOfEstablishment.trim()}
                   className="w-full"
                 >
                   <PenLine className="w-4 h-4" />

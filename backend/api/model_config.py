@@ -84,10 +84,18 @@ def get_chat_model(
 ) -> ChatOpenAI:
     """Build a ``ChatOpenAI`` instance for *role* with credentials resolved."""
     raw_name = get_model_name(role, default)
-    # Strip provider prefix (e.g. "openai:deepseek-chat" → "deepseek-chat")
-    model_name = raw_name.split(":", 1)[-1] if ":" in raw_name else raw_name
 
-    api_key, base_url = get_api_credentials(config)
+    # Detect provider prefix and route accordingly
+    if ":" in raw_name:
+        provider, model_name = raw_name.split(":", 1)
+    else:
+        provider, model_name = None, raw_name
+
+    if provider == "openrouter":
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        base_url = "https://openrouter.ai/api/v1"
+    else:
+        api_key, base_url = get_api_credentials(config)
 
     model_params: Dict[str, Any] = {"model": model_name, **kwargs}
     if api_key:
