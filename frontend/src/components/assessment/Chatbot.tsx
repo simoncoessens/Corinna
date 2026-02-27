@@ -3,34 +3,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2 } from "lucide-react";
-import createDOMPurify from "dompurify";
-import { marked } from "marked";
 import { cn } from "@/lib/utils";
 import { getSessionId, API_BASE_URL } from "@/services/api";
+import { MarkdownContent } from "@/components/ui";
 import type { StreamEvent } from "@/types/api";
 import type { Message } from "@/types/chat";
 import { toolLabels } from "@/types/chat";
-
-const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
-
-function MarkdownContent({ content }: { content: string }) {
-  const sanitizedHtml = useMemo(() => {
-    const normalized = (content ?? "").replace(/\r\n/g, "\n");
-    const rawHtml = marked.parse(normalized, {
-      // Avoid turning every single newline into a <br/> (prevents "gappy" output).
-      breaks: false,
-    }) as string;
-    // Fallback to raw HTML if purifier not ready (should only happen during SSR)
-    return purifier ? purifier.sanitize(rawHtml) : rawHtml;
-  }, [content]);
-
-  return (
-    <div
-      className="font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-normal wrap-break-word"
-      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-    />
-  );
-}
 
 interface ChatbotProps {
   context?: string;

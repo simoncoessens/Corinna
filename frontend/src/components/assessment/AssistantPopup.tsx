@@ -3,63 +3,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, X, MessageCircleQuestion } from "lucide-react";
-import createDOMPurify from "dompurify";
-import { marked } from "marked";
 import { cn } from "@/lib/utils";
 import { API_BASE_URL } from "@/services/api";
+import { MarkdownContent } from "@/components/ui";
 import type { StreamEvent } from "@/types/api";
 import type { Message } from "@/types/chat";
 import { toolLabels } from "@/types/chat";
-
-const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
-
-function MarkdownContent({ content }: { content: string }) {
-  const sanitizedHtml = useMemo(() => {
-    const normalized = (content ?? "").replace(/\r\n/g, "\n");
-    const rawHtml = marked.parse(normalized, {
-      // Avoid turning every single newline into a <br/> (prevents "gappy" output).
-      breaks: false,
-    }) as string;
-    // Explicitly allow list elements in DOMPurify to ensure bullets render
-    return purifier
-      ? purifier.sanitize(rawHtml, {
-          ALLOWED_TAGS: [
-            "p",
-            "br",
-            "strong",
-            "em",
-            "u",
-            "s",
-            "code",
-            "pre",
-            "blockquote",
-            "h1",
-            "h2",
-            "h3",
-            "h4",
-            "h5",
-            "h6",
-            "ul",
-            "ol",
-            "li",
-            "a",
-          ],
-          ALLOWED_ATTR: ["href", "title", "target", "rel"],
-        })
-      : rawHtml;
-  }, [content]);
-
-  return (
-    <div
-      className="markdown-content font-sans text-sm leading-relaxed text-[#0a0a0a] whitespace-normal wrap-break-word prose prose-sm max-w-none
-        prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5
-        prose-headings:text-[#0a0a0a] prose-headings:font-medium
-        prose-a:text-[#003399] prose-a:no-underline hover:prose-a:underline
-        prose-strong:text-[#0a0a0a] prose-strong:font-medium"
-      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-    />
-  );
-}
 
 type AssistantPhase =
   | "company_match"
