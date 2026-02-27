@@ -40,22 +40,17 @@ backend_env_path = Path(__file__).resolve().parent.parent / ".env"
 if backend_env_path.exists():
     load_dotenv(backend_env_path, override=True)
 
-# Add backend to path for database imports and agents
-backend_path = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(backend_path))
-agents_path = backend_path / "agents"
+def _setup_paths() -> None:
+    """Add backend and agent source directories to sys.path."""
+    backend_path = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(backend_path))
+    agents_path = backend_path / "agents"
+    for agent_dir in ("company_matcher", "company_researcher", "service_categorizer", "main_agent"):
+        src = agents_path / agent_dir / "src"
+        if src.exists():
+            sys.path.insert(0, str(src))
 
-# Add each agent's src directory to path for imports
-agent_src_paths = [
-    agents_path / "company_matcher" / "src",
-    agents_path / "company_researcher" / "src",
-    agents_path / "service_categorizer" / "src",
-    agents_path / "main_agent" / "src",
-]
-
-for path in agent_src_paths:
-    if path.exists():
-        sys.path.insert(0, str(path))
+_setup_paths()
 
 # Import agents
 from langchain_core.messages import HumanMessage, AIMessage

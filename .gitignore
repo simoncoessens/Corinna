@@ -47,6 +47,15 @@ dist/
 # Database (SQLite for local dev)
 backend/data/*.db
 backend/data/*.sqlite
+*.db-shm
+*.db-wal
+
+# Coverage
+.coverage
+htmlcov/
+
+# Pickle artifacts
+*.pckl
 
 # Video files
 video/
