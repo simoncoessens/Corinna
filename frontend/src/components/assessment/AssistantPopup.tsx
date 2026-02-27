@@ -6,12 +6,10 @@ import { Send, Loader2, X, MessageCircleQuestion } from "lucide-react";
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
-
-const toolLabels: Record<string, string> = {
-  web_search: "Searching the web",
-  retrieve_dsa_knowledge: "Reading the DSA document",
-};
+import type { Message } from "@/types/chat";
+import { toolLabels } from "@/types/chat";
 
 const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
 
@@ -61,13 +59,6 @@ function MarkdownContent({ content }: { content: string }) {
       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
     />
   );
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
 }
 
 type AssistantPhase =
@@ -152,12 +143,6 @@ const phaseSubtitles: Record<AssistantPhase, string> = {
   classify: "Help with classification",
   report: "Help understanding your report",
 };
-
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:8001"
-    : process.env.NEXT_PUBLIC_API_URL ||
-      "https://snip-tool-backend.onrender.com";
 
 export function AssistantPopup({
   context,

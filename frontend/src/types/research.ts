@@ -2,25 +2,7 @@
  * Types for Company Research
  */
 
-export interface SubQuestionAnswer {
-  section: string;
-  question: string;
-  answer: string;
-  /**
-   * Explicit flag for when no relevant public information was found.
-   * Optional for backward compatibility with older responses.
-   */
-  information_found?: boolean;
-  source: string;
-  confidence: "High" | "Medium" | "Low";
-  raw_research?: string;
-}
-
-export interface CompanyResearchResult {
-  company_name: string;
-  generated_at: string;
-  answers: SubQuestionAnswer[];
-}
+export type { SubQuestionAnswer, CompanyResearchResult } from "./api";
 
 export type ResearchSection =
   | "GEOGRAPHICAL SCOPE"

@@ -15,7 +15,7 @@ export interface CompanyMatcherRequest {
 export interface CompanyMatch {
   name: string;
   top_domain: string;
-  confidence: "exact" | "high" | "medium" | "low" | string;
+  confidence: "exact" | "high" | "medium" | "low";
   summary_short?: string | null;
   summary_long: string;
 }
@@ -52,6 +52,7 @@ export interface SubQuestionAnswer {
 
 export interface CompanyResearchResult {
   company_name: string;
+  generated_at?: string;
   answers: SubQuestionAnswer[];
 }
 
@@ -80,7 +81,6 @@ export interface CompanyProfile {
     company_size?: ResearchAnswer[];
     service_type?: ResearchAnswer[];
   };
-  [key: string]: unknown;
 }
 
 export interface ResearchAnswer {
@@ -253,28 +253,4 @@ export interface HealthStatus {
   };
 }
 
-// =============================================================================
-// DSA Article Reference Types
-// =============================================================================
-
-export interface DSAArticle {
-  number: number;
-  title: string;
-  chapter: string;
-  section?: string;
-  applies_to: ServiceTier[];
-}
-
-export type ServiceTier =
-  | "intermediary"
-  | "hosting"
-  | "platform"
-  | "marketplace"
-  | "vlop";
-
-export interface ComplianceStatus {
-  article: DSAArticle;
-  status: "compliant" | "non_compliant" | "requires_review" | "not_applicable";
-  notes?: string;
-}
 

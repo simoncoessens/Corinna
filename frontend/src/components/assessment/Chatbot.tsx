@@ -6,13 +6,10 @@ import { Send, Loader2 } from "lucide-react";
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
-import { getSessionId } from "@/services/api";
+import { getSessionId, API_BASE_URL } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
-
-const toolLabels: Record<string, string> = {
-  web_search: "Searching the web",
-  retrieve_dsa_knowledge: "Reading the DSA document",
-};
+import type { Message } from "@/types/chat";
+import { toolLabels } from "@/types/chat";
 
 const purifier = typeof window !== "undefined" ? createDOMPurify(window) : null;
 
@@ -35,22 +32,9 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
-
 interface ChatbotProps {
   context?: string;
 }
-
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:8001"
-    : process.env.NEXT_PUBLIC_API_URL ||
-      "https://snip-tool-backend.onrender.com";
 
 export function Chatbot({ context }: ChatbotProps) {
   const [messages, setMessages] = useState<Message[]>([

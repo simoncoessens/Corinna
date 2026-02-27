@@ -17,13 +17,10 @@ import {
 import createDOMPurify from "dompurify";
 import { marked } from "marked";
 import { cn } from "@/lib/utils";
-import { getSessionId } from "@/services/api";
+import { getSessionId, API_BASE_URL } from "@/services/api";
 import type { StreamEvent } from "@/types/api";
-
-const toolLabels: Record<string, string> = {
-  web_search: "Searching the web",
-  retrieve_dsa_knowledge: "Reading the DSA document",
-};
+import type { Message } from "@/types/chat";
+import { toolLabels } from "@/types/chat";
 
 // Legal-themed loading animation component
 function LegalLoadingAnimation({ tool }: { tool: string }) {
@@ -285,13 +282,6 @@ function MarkdownContent({ content }: { content: string }) {
   );
 }
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
-}
-
 export type ChatPhase =
   | "company_match"
   | "deep_research"
@@ -537,12 +527,6 @@ const phaseHints: Record<ChatPhase, string> = {
   classify: "How will my service be classified?",
   report: "What do these obligations mean for you?",
 };
-
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:8001"
-    : process.env.NEXT_PUBLIC_API_URL ||
-      "https://snip-tool-backend.onrender.com";
 
 // Build the full context string from ChatContext
 function buildContextString(context: ChatContext): string {

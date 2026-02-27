@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileSearch, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSessionId } from "@/services/api";
+import { getSessionId, API_BASE_URL } from "@/services/api";
 import type {
   StreamEvent,
   ResultEvent,
@@ -13,7 +13,6 @@ import type {
 } from "@/types/api";
 import type {
   CompanyResearchResult,
-  RESEARCH_SECTIONS,
 } from "@/types/research";
 import type { ChatContext } from "./ChatPopup";
 
@@ -36,12 +35,6 @@ interface DeepResearchProps {
   }) => void;
 }
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:8001"
-    : process.env.NEXT_PUBLIC_API_URL ||
-      "https://snip-tool-backend.onrender.com";
-
 const RESEARCH_PERSISTENCE_KEY = "corinna_deep_research_state";
 
 interface PersistedResearchState {
@@ -49,14 +42,6 @@ interface PersistedResearchState {
   displayedSources: SearchSource[];
   totalSourceCount: number;
   phase: "research" | "summarization" | "finalizing";
-}
-
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
 }
 
 const MAX_VISIBLE_SOURCES = 6;

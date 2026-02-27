@@ -15,8 +15,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
-import { getSessionId } from "@/services/api";
+import { cn, extractDomain } from "@/lib/utils";
+import { getSessionId, API_BASE_URL } from "@/services/api";
 import type {
   CompanyMatch,
   CompanyMatchResult,
@@ -40,22 +40,7 @@ interface CompanyMatcherProps {
   onVisibleStateChange?: (state: ChatContext["visibleUi"]) => void;
 }
 
-const API_BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:8001"
-    : process.env.NEXT_PUBLIC_API_URL ||
-      "https://snip-tool-backend.onrender.com";
-
 const MATCHER_PERSISTENCE_KEY = "corinna_company_matcher_state";
-
-// Extract domain from URL for cleaner display (used for search sources).
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
-}
 
 function getShortSummary(company: CompanyMatch): string {
   return (

@@ -76,3 +76,14 @@ export function snakeToTitle(str: string): string {
     .join(" ");
 }
 
+/**
+ * Extract the hostname from a URL for cleaner display.
+ */
+export function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
+}
+
