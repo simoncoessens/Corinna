@@ -53,43 +53,63 @@ def _setup_paths() -> None:
 
 _setup_paths()
 
-# Import agents
+# Core langchain imports (lightweight)
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables import Runnable
 
-# Import each agent
-try:
-    from company_matcher.graph import company_matcher
-    from company_matcher.state import CompanyMatcherInputState
-    from company_matcher.models import CompanyMatchResult
-except ImportError as e:
-    print(f"Warning: Could not import company_matcher: {e}")
-    company_matcher = None
-    CompanyMatcherInputState = None
+# ---------------------------------------------------------------------------
+# Lazy agent loading — each graph compiles on first use, not at startup.
+# This keeps RSS under ~300 MB so the app fits in a 512 MB container.
+# ---------------------------------------------------------------------------
 
-try:
-    from company_researcher.graph import company_researcher
-    from company_researcher.state import CompanyResearchInputState
-except ImportError as e:
-    print(f"Warning: Could not import company_researcher: {e}")
-    company_researcher = None
-    CompanyResearchInputState = None
+_company_matcher = None
+_company_researcher = None
+_service_categorizer = None
+_main_agent = None
 
-try:
-    from service_categorizer.graph import service_categorizer
-    from service_categorizer.state import ServiceCategorizerInputState
-except ImportError as e:
-    print(f"Warning: Could not import service_categorizer: {e}")
-    service_categorizer = None
-    ServiceCategorizerInputState = None
 
-try:
-    from main_agent.graph import main_agent
-    from main_agent.state import MainAgentInputState
-except ImportError as e:
-    print(f"Warning: Could not import main_agent: {e}")
-    main_agent = None
-    MainAgentInputState = None
+def _get_company_matcher():
+    global _company_matcher
+    if _company_matcher is None:
+        try:
+            from company_matcher.graph import company_matcher as _cm
+            _company_matcher = _cm
+        except ImportError as e:
+            logger.warning("Could not import company_matcher: %s", e)
+    return _company_matcher
+
+
+def _get_company_researcher():
+    global _company_researcher
+    if _company_researcher is None:
+        try:
+            from company_researcher.graph import company_researcher as _cr
+            _company_researcher = _cr
+        except ImportError as e:
+            logger.warning("Could not import company_researcher: %s", e)
+    return _company_researcher
+
+
+def _get_service_categorizer():
+    global _service_categorizer
+    if _service_categorizer is None:
+        try:
+            from service_categorizer.graph import service_categorizer as _sc
+            _service_categorizer = _sc
+        except ImportError as e:
+            logger.warning("Could not import service_categorizer: %s", e)
+    return _service_categorizer
+
+
+def _get_main_agent():
+    global _main_agent
+    if _main_agent is None:
+        try:
+            from main_agent.graph import main_agent as _ma
+            _main_agent = _ma
+        except ImportError as e:
+            logger.warning("Could not import main_agent: %s", e)
+    return _main_agent
 
 
 # =============================================================================
@@ -98,15 +118,22 @@ except ImportError as e:
 
 try:
     from database import init_db
+    from database.circuit_breaker import db_circuit_breaker, DatabaseUnavailableError
     from api.admin import router as admin_router
     from api.session_tracker import tracker
     from database.models import SessionStatus, StepType
-    DB_AVAILABLE = True
+    DB_MODULE_LOADED = True
 except ImportError as e:
     print(f"Warning: Database not available: {e}")
-    DB_AVAILABLE = False
+    DB_MODULE_LOADED = False
+    db_circuit_breaker = None  # type: ignore[assignment]
     admin_router = None
     tracker = None
+
+
+def db_available() -> bool:
+    """Check if the database is available at runtime (module loaded + circuit closed/half-open)."""
+    return DB_MODULE_LOADED and db_circuit_breaker is not None and db_circuit_breaker.is_available
 
 
 # =============================================================================
@@ -393,19 +420,16 @@ async def stream_with_final_result(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    # Initialize database
-    global DB_AVAILABLE, tracker
-    if DB_AVAILABLE:
+    if DB_MODULE_LOADED:
         try:
             from database.connection import DATABASE_URL, engine
             from sqlalchemy import text
             # Test connection
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            
+
             # Log which database is being used
             if DATABASE_URL.startswith("postgresql://"):
-                # Mask password in log
                 masked_url = DATABASE_URL.split("@")[1] if "@" in DATABASE_URL else "Supabase"
                 print(f"✓ Database: PostgreSQL/Supabase ({masked_url})")
             elif DATABASE_URL.startswith("sqlite://"):
@@ -413,23 +437,20 @@ async def lifespan(app: FastAPI):
                 print("  Note: Set DATABASE_URL to use Supabase in production")
             else:
                 print(f"✓ Database: {DATABASE_URL[:30]}...")
-            
+
             init_db()
             print("✓ Database initialized and connected")
         except Exception as e:
             print(f"✗ Database initialization failed: {e}")
             import traceback
             traceback.print_exc()
-            # Disable tracking for this process to avoid silent failures later on.
-            DB_AVAILABLE = False
-            tracker = None
-    
-    print("✓ DSA Copilot API ready")
-    print(f"  - Company Matcher: {'✓' if company_matcher else '✗'}")
-    print(f"  - Company Researcher: {'✓' if company_researcher else '✗'}")
-    print(f"  - Service Categorizer: {'✓' if service_categorizer else '✗'}")
-    print(f"  - Main Agent: {'✓' if main_agent else '✗'}")
-    print(f"  - Session Tracking: {'✓' if DB_AVAILABLE else '✗'}")
+            # Trip the circuit breaker — it will auto-probe after recovery_timeout
+            if db_circuit_breaker:
+                db_circuit_breaker.trip()
+            print("  Circuit breaker tripped; will auto-probe for recovery")
+
+    print("✓ DSA Copilot API ready (agents load lazily on first request)")
+    print(f"  - Session Tracking: {'✓' if db_available() else '✗'}")
     print(f"  - Admin Dashboard: {'✓' if admin_router else '✗'}")
     yield
 
@@ -471,6 +492,20 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 if admin_router:
     app.include_router(admin_router)
 
+# Exception handler for DatabaseUnavailableError (covers admin routes, etc.)
+if DB_MODULE_LOADED:
+    from fastapi.responses import JSONResponse
+
+    @app.exception_handler(DatabaseUnavailableError)
+    async def _db_unavailable_handler(request: Request, exc: DatabaseUnavailableError):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": "Database is temporarily unavailable. Please try again later.",
+                "database": db_circuit_breaker.status_dict() if db_circuit_breaker else None,
+            },
+        )
+
 
 # =============================================================================
 # Health Check
@@ -479,15 +514,19 @@ if admin_router:
 @app.get("/health")
 def health():
     """Health check endpoint."""
-    return {
+    result: Dict[str, Any] = {
         "status": "healthy",
         "agents": {
-            "company_matcher": company_matcher is not None,
-            "company_researcher": company_researcher is not None,
-            "service_categorizer": service_categorizer is not None,
-            "main_agent": main_agent is not None,
-        }
+            "company_matcher": _company_matcher is not None,
+            "company_researcher": _company_researcher is not None,
+            "service_categorizer": _service_categorizer is not None,
+            "main_agent": _main_agent is not None,
+        },
+        "agents_note": "false means not yet loaded (lazy), not unavailable",
     }
+    if db_circuit_breaker is not None:
+        result["database"] = db_circuit_breaker.status_dict()
+    return result
 
 
 # =============================================================================
@@ -497,6 +536,7 @@ def health():
 @app.post("/agents/company_matcher/stream")
 async def company_matcher_stream(request: CompanyMatcherRequest):
     """Stream company matching results. Supports reconnection via session_id."""
+    company_matcher = _get_company_matcher()
     if not company_matcher:
         raise HTTPException(status_code=503, detail="Company matcher not available")
     
@@ -510,7 +550,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
     
     session_id = request.session_id
     
-    input_state: CompanyMatcherInputState = {
+    input_state = {
         "messages": [HumanMessage(content=request.company_name.strip())],
         "country_of_establishment": request.country_of_establishment.strip(),
     }
@@ -522,7 +562,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
         if match_result:
             try:
                 parsed = json.loads(match_result)
-                if DB_AVAILABLE and tracker and session_id:
+                if db_available() and tracker and session_id:
                     exact = parsed.get("exact_match")
                     if exact:
                         tracker.update_session(
@@ -553,7 +593,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
             local_step_id: Optional[str] = None
             metrics = StreamMetrics()
 
-            if DB_AVAILABLE and tracker:
+            if db_available() and tracker:
                 tracker.get_or_create_session(
                     session_id,
                     company_name=request.company_name.strip(),
@@ -573,7 +613,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
                 if match_result:
                     try:
                         parsed = json.loads(match_result)
-                        if DB_AVAILABLE and tracker:
+                        if db_available() and tracker:
                             exact = parsed.get("exact_match")
                             if exact:
                                 tracker.update_session(
@@ -642,7 +682,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
     )
 
     return StreamingResponse(
-        tracked_stream(stream, tracker=tracker if DB_AVAILABLE else None, step_id=step_id),
+        tracked_stream(stream, tracker=tracker if db_available() else None, step_id=step_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -654,6 +694,7 @@ async def company_matcher_stream(request: CompanyMatcherRequest):
 @app.post("/agents/company_matcher")
 async def company_matcher_invoke(request: CompanyMatcherRequest):
     """Non-streaming company matching."""
+    company_matcher = _get_company_matcher()
     if not company_matcher:
         raise HTTPException(status_code=503, detail="Company matcher not available")
     
@@ -666,7 +707,7 @@ async def company_matcher_invoke(request: CompanyMatcherRequest):
         )
     
     try:
-        input_state: CompanyMatcherInputState = {
+        input_state = {
             "messages": [HumanMessage(content=request.company_name.strip())],
             "country_of_establishment": request.country_of_establishment.strip(),
         }
@@ -688,6 +729,7 @@ async def company_matcher_invoke(request: CompanyMatcherRequest):
 @app.post("/agents/company_researcher/stream")
 async def company_researcher_stream(request: CompanyResearcherRequest):
     """Stream company research results."""
+    company_researcher = _get_company_researcher()
     if not company_researcher:
         raise HTTPException(status_code=503, detail="Company researcher not available")
     
@@ -714,7 +756,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         async def runner(job):  # type: ignore[no-redef]
             step_id = None
             try:
-                if DB_AVAILABLE and tracker:
+                if db_available() and tracker:
                     tracker.update_session(session_id, status=SessionStatus.RESEARCHING)
                     step_id = tracker.start_step(
                         session_id,
@@ -725,7 +767,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                         },
                     )
 
-                input_state: CompanyResearchInputState = {
+                input_state = {
                     "messages": [HumanMessage(content=payload["company_name"])],
                     "company_name": payload["company_name"],
                     "top_domain": payload["top_domain"] or None,
@@ -743,7 +785,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
                     if final_report:
                         try:
                             parsed = json.loads(final_report)
-                            if DB_AVAILABLE and tracker:
+                            if db_available() and tracker:
                                 try:
                                     tracker.update_session(
                                         session_id, status=SessionStatus.RESEARCH_COMPLETE
@@ -812,7 +854,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
         )
 
     # No session id → fall back to direct streaming (no resume on refresh)
-    input_state: CompanyResearchInputState = {
+    input_state = {
         "messages": [HumanMessage(content=request.company_name.strip())],
         "company_name": request.company_name.strip(),
         "top_domain": (request.top_domain or "").strip() or None,
@@ -834,6 +876,7 @@ async def company_researcher_stream(request: CompanyResearcherRequest):
 @app.post("/agents/company_researcher")
 async def company_researcher_invoke(request: CompanyResearcherRequest):
     """Non-streaming company research."""
+    company_researcher = _get_company_researcher()
     if not company_researcher:
         raise HTTPException(status_code=503, detail="Company researcher not available")
     
@@ -841,7 +884,7 @@ async def company_researcher_invoke(request: CompanyResearcherRequest):
         raise HTTPException(status_code=400, detail="Company name is required")
     
     try:
-        input_state: CompanyResearchInputState = {
+        input_state = {
             "messages": [HumanMessage(content=request.company_name.strip())],
             "company_name": request.company_name.strip(),
             "top_domain": (request.top_domain or "").strip() or None,
@@ -865,13 +908,14 @@ async def company_researcher_invoke(request: CompanyResearcherRequest):
 @app.post("/agents/service_categorizer/stream")
 async def service_categorizer_stream(request: ServiceCategorizerRequest):
     """Stream service categorization results."""
+    service_categorizer = _get_service_categorizer()
     if not service_categorizer:
         raise HTTPException(status_code=503, detail="Service categorizer not available")
     
     # Session tracking
     session_id = request.session_id
     step_id = None
-    if session_id and DB_AVAILABLE and tracker:
+    if session_id and db_available() and tracker:
         tracker.update_session(session_id, status=SessionStatus.CLASSIFYING)
         step_id = tracker.start_step(
             session_id,
@@ -879,7 +923,7 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
             {"company_profile": request.company_profile},
         )
     
-    input_state: ServiceCategorizerInputState = {
+    input_state = {
         "messages": [HumanMessage(content=json.dumps(request.company_profile))],
         "top_domain": (request.top_domain or "").strip() or None,
         "summary_long": (request.summary_long or "").strip() or None,
@@ -891,7 +935,7 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
             try:
                 parsed = json.loads(final_report)
                 # Update session with classification results
-                if session_id and DB_AVAILABLE and tracker:
+                if session_id and db_available() and tracker:
                     classification = parsed.get("classification", {})
                     svc = classification.get("service_classification", {})
                     scope = classification.get("territorial_scope", {})
@@ -923,7 +967,7 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
 
 
     return StreamingResponse(
-        tracked_stream(stream, tracker=tracker if DB_AVAILABLE else None, step_id=step_id),
+        tracked_stream(stream, tracker=tracker if db_available() else None, step_id=step_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -935,11 +979,12 @@ async def service_categorizer_stream(request: ServiceCategorizerRequest):
 @app.post("/agents/service_categorizer")
 async def service_categorizer_invoke(request: ServiceCategorizerRequest):
     """Non-streaming service categorization."""
+    service_categorizer = _get_service_categorizer()
     if not service_categorizer:
         raise HTTPException(status_code=503, detail="Service categorizer not available")
     
     try:
-        input_state: ServiceCategorizerInputState = {
+        input_state = {
             "messages": [HumanMessage(content=json.dumps(request.company_profile))],
             "top_domain": (request.top_domain or "").strip() or None,
             "summary_long": (request.summary_long or "").strip() or None,
@@ -962,6 +1007,7 @@ async def service_categorizer_invoke(request: ServiceCategorizerRequest):
 @app.post("/agents/main_agent/stream")
 async def main_agent_stream(request: MainAgentRequest):
     """Stream main agent responses."""
+    main_agent = _get_main_agent()
     if not main_agent:
         raise HTTPException(status_code=503, detail="Main agent not available")
     
@@ -973,7 +1019,7 @@ async def main_agent_stream(request: MainAgentRequest):
     start_time = time.time()
     metrics = StreamMetrics()
 
-    if session_id and DB_AVAILABLE and tracker:
+    if session_id and db_available() and tracker:
         tracker.add_chat_message(
             session_id,
             role="user",
@@ -982,7 +1028,7 @@ async def main_agent_stream(request: MainAgentRequest):
             context_mode=request.context_mode,
         )
 
-    input_state: MainAgentInputState = {
+    input_state = {
         "messages": [HumanMessage(content=request.message.strip())],
         "frontend_context": request.frontend_context,
         "context_mode": request.context_mode,
@@ -994,7 +1040,7 @@ async def main_agent_stream(request: MainAgentRequest):
             last_message = messages[-1]
             content = last_message.content if hasattr(last_message, "content") else str(last_message)
 
-            if session_id and DB_AVAILABLE and tracker:
+            if session_id and db_available() and tracker:
                 duration = time.time() - start_time
                 tracker.add_chat_message(
                     session_id,
@@ -1028,6 +1074,7 @@ async def main_agent_stream(request: MainAgentRequest):
 @app.post("/agents/main_agent")
 async def main_agent_invoke(request: MainAgentRequest):
     """Non-streaming main agent."""
+    main_agent = _get_main_agent()
     if not main_agent:
         raise HTTPException(status_code=503, detail="Main agent not available")
     
@@ -1035,7 +1082,7 @@ async def main_agent_invoke(request: MainAgentRequest):
         raise HTTPException(status_code=400, detail="Message is required")
     
     try:
-        input_state: MainAgentInputState = {
+        input_state = {
             "messages": [HumanMessage(content=request.message.strip())],
             "frontend_context": request.frontend_context,
             "context_mode": request.context_mode,
