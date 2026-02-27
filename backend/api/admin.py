@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy import desc, func
+from sqlalchemy import cast, Date, desc, func
 from sqlalchemy.orm import Session as DBSession
 
 from database import ChatMessage, Session, SessionStep, get_db
@@ -106,23 +106,23 @@ def get_dashboard_stats(
         .scalar() or 0
     )
     
-    # Sessions per day for chart
-    sessions_per_day = []
-    for i in range(days):
-        day = datetime.now(timezone.utc).date() - timedelta(days=i)
-        day_start = datetime.combine(day, datetime.min.time(), timezone.utc)
-        day_end = datetime.combine(day, datetime.max.time(), timezone.utc)
-        count = (
-            db.query(Session)
-            .filter(Session.created_at >= day_start)
-            .filter(Session.created_at <= day_end)
-            .count()
+    # Sessions per day for chart (single GROUP BY query instead of N+1)
+    day_counts = dict(
+        db.query(
+            cast(Session.created_at, Date).label("day"),
+            func.count(Session.id),
         )
+        .filter(Session.created_at >= cutoff)
+        .group_by("day")
+        .all()
+    )
+    sessions_per_day = []
+    for i in range(days - 1, -1, -1):
+        day = datetime.now(timezone.utc).date() - timedelta(days=i)
         sessions_per_day.append({
             "date": day.isoformat(),
-            "count": count,
+            "count": day_counts.get(day, 0),
         })
-    sessions_per_day.reverse()
     
     # Top companies researched
     top_companies = (

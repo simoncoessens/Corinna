@@ -56,9 +56,22 @@ class StreamJob:
 class StreamHub:
     """Manages jobs keyed by a stable identifier."""
 
+    TTL_SECONDS: float = 3600  # Evict completed jobs older than 1 hour
+
     def __init__(self) -> None:
         self._jobs: Dict[str, StreamJob] = {}
         self._lock = asyncio.Lock()
+
+    def _evict_stale(self) -> None:
+        """Remove completed jobs older than TTL (must hold _lock)."""
+        now = time.time()
+        stale_keys = [
+            k
+            for k, j in self._jobs.items()
+            if j.done and (now - j.created_at) > self.TTL_SECONDS
+        ]
+        for k in stale_keys:
+            del self._jobs[k]
 
     async def get_or_create(
         self, key: str, runner: Callable[[StreamJob], Awaitable[None]]
@@ -68,6 +81,8 @@ class StreamHub:
         The runner executes the underlying long-running work and appends chunks.
         """
         async with self._lock:
+            self._evict_stale()
+
             job = self._jobs.get(key)
             if job is not None:
                 return job
