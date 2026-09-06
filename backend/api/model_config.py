@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "model_config.json"
 
+# Explicit output cap for OpenRouter requests (see get_chat_model). Override
+# with the OPENROUTER_MAX_TOKENS env var if a deployment needs longer outputs.
+OPENROUTER_MAX_TOKENS: int = int(os.getenv("OPENROUTER_MAX_TOKENS", "16384"))
+
 AVAILABLE_MODELS: List[Dict[str, str]] = [
     {"id": "openrouter:anthropic/claude-opus-4.6", "label": "Claude Opus 4.6"},
     {"id": "openrouter:anthropic/claude-sonnet-4.6", "label": "Claude Sonnet 4.6"},
@@ -212,6 +216,11 @@ def get_chat_model(
             api_keys_from_config.get("OPENROUTER_API_KEY")
             or os.getenv("OPENROUTER_API_KEY")
         )
+        # OpenRouter fills in max_tokens with the provider's advertised maximum
+        # when it is omitted; several providers (Novita, Google) then reject the
+        # request because that value exceeds their real output limit. Always
+        # send an explicit, sane cap.
+        kwargs.setdefault("max_tokens", OPENROUTER_MAX_TOKENS)
         kwargs.setdefault("extra_body", {})
         kwargs["extra_body"].setdefault(
             "provider",
