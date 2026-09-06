@@ -85,8 +85,8 @@ Environment variables needed by the services are listed in `render.yaml`
 
 * Render: 2 × Starter web services = $14/month (invoiced Jun/Jul/Aug 2026).
   Free tier is possible but services sleep after inactivity and the backend
-  needs the 512 MB. A leftover `snip-tool-redis` (Valkey, free) can be deleted:
-  Redis is no longer used.
+  needs the 512 MB. The leftover `snip-tool-redis` (Valkey, free) was deleted on
+  2026-09-06; Redis is no longer used.
 * OpenRouter: ≈ $0.05–0.20 per full assessment with Kimi K2 (the current
   key used $11 of $20 credit over the whole project so far).
 * Tavily: free tier (1 000 searches/month) has been sufficient.
