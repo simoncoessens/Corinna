@@ -8,9 +8,9 @@ or a delegate), without losing the live URL or the stored assessment sessions.
 
 | Piece | Where | Owner today | Notes |
 |---|---|---|---|
-| Source code | github.com/simoncoessens/Corinna | Simon (admin), Vittorio (write) | public repo; Render deploys `main` |
-| Frontend | https://snip-tool.onrender.com | Simon's Render workspace (credit card) | Next.js, Docker |
-| Backend API | https://snip-tool-backend.onrender.com | Simon's Render workspace | FastAPI + LangGraph, Docker |
+| Source code | github.com/simoncoessens/Corinna | Simon (admin), Vittorio (write) | public repo; Render builds `main` but **auto-deploy is OFF** – deploy manually from the dashboard |
+| Frontend | https://snip-tool.onrender.com | Simon's Render workspace (credit card) | Render service `corrina-frontend`, Node runtime (root dir `frontend/`), Starter plan |
+| Backend API | https://snip-tool-backend.onrender.com | Simon's Render workspace | Render service `corinna-backend`, Docker (`backend/Dockerfile`), Starter plan, region Virginia |
 | LLM calls | OpenRouter (Kimi K2 / K2-thinking) | Simon's OpenRouter account | prepaid credits |
 | Web search | Tavily | Simon's Tavily account | API key |
 | DSA knowledge base | Qdrant (vector DB) + OpenAI embeddings | Simon | `QDRANT_URL` / `OPENAI_EMBEDDING_API_KEY` |
@@ -83,18 +83,21 @@ Environment variables needed by the services are listed in `render.yaml`
 
 ## 4. Running costs (order of magnitude)
 
-* Render: 2 × Starter web services ≈ $14/month (free tier possible but
-  services sleep after inactivity and the backend needs the 512 MB).
+* Render: 2 × Starter web services = $14/month (invoiced Jun/Jul/Aug 2026).
+  Free tier is possible but services sleep after inactivity and the backend
+  needs the 512 MB. A leftover `snip-tool-redis` (Valkey, free) can be deleted:
+  Redis is no longer used.
 * OpenRouter: ≈ $0.05–0.20 per full assessment with Kimi K2 (the current
   key used $11 of $20 credit over the whole project so far).
 * Tavily: free tier (1 000 searches/month) has been sufficient.
 * OpenAI embeddings: cents. Supabase + Qdrant: free tiers.
 
-## 5. Known issue fixed in this PR
+## 5. Known issue fixed on 2026-09-06
 
 Since OpenRouter dropped Amazon Bedrock as a provider for the Kimi models,
 requests without an explicit `max_tokens` are forwarded with the provider's
 advertised maximum, which Novita and Google reject with HTTP 400. Every agent
 call therefore failed with HTTP 500 while `/health` still reported healthy.
 `get_chat_model()` and `create_llm()` now always send `max_tokens`
-(default 16384, override with `OPENROUTER_MAX_TOKENS`).
+(default 16384, override with `OPENROUTER_MAX_TOKENS`). Deployed manually
+(commit c47b0ba) and verified end-to-end on 2026-09-06.
