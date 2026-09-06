@@ -1,71 +1,42 @@
-# Render Blueprint for Corinna (DSA self-assessment tool).
-#
-# Purpose: let a new Render workspace recreate the two production services in
-# one click (Render Dashboard -> New -> Blueprint -> pick this repo). Render
-# does not allow moving services between workspaces, so this file *is* the
-# hand-over mechanism. Secrets are marked `sync: false`: Render prompts for
-# them at creation time and never reads them from git.
-#
-# Service names below are the same as the current deployment. On Render the
-# public URL is https://<name>.onrender.com, so keep the names if you want to
-# keep https://snip-tool.onrender.com — the old services must be deleted first
-# so the names are free.
+# Render Blueprint for Corinna. Deploy with one click:
+#   https://render.com/deploy?repo=https://github.com/simoncoessens/Corinna
+# Render creates both services and asks for every value marked `sync: false`.
+# Nothing secret is stored in git.
 
 services:
-  # --------------------------------------------------------------------------
-  # Backend: FastAPI + LangGraph agents (Docker, backend/Dockerfile)
-  # --------------------------------------------------------------------------
   - type: web
-    name: snip-tool-backend
+    name: corinna-uniba-backend
     runtime: docker
     rootDir: backend
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    region: frankfurt          # Supabase DB lives in aws eu-west-1; keep EU
-    plan: starter              # backend is tuned for 512 MB RAM, 1 worker
+    region: frankfurt
+    plan: starter
     healthCheckPath: /health
-    autoDeployTrigger: commit
     envVars:
-      # --- LLM providers ---
-      - key: OPENROUTER_API_KEY        # main provider (Kimi K2 models)
+      - key: OPENROUTER_API_KEY        # openrouter.ai -> Keys (LLM calls)
         sync: false
-      - key: OPENROUTER_MAX_TOKENS     # optional, default 16384
-        value: "16384"
-      - key: OPENAI_API_KEY            # only used for "deepseek-*" model choices
+      - key: TAVILY_API_KEY            # app.tavily.com (web search)
         sync: false
-      - key: OPENAI_BASE_URL
-        value: https://api.deepseek.com
-      # --- Embeddings + vector store for the DSA knowledge base (RAG) ---
-      - key: OPENAI_EMBEDDING_API_KEY  # real OpenAI key, text-embedding-3-small
+      - key: OPENAI_EMBEDDING_API_KEY  # platform.openai.com (embeddings only)
         sync: false
-      - key: OPENAI_EMBEDDING_BASE_URL
-        value: https://api.openai.com/v1
+      - key: QDRANT_URL                # Qdrant Cloud cluster URL
+        sync: false
+      - key: QDRANT_API_KEY            # Qdrant Cloud API key
+        sync: false
+      - key: DATABASE_URL              # Supabase -> Connect -> Session pooler
+        sync: false
+      - key: ADMIN_PASSWORD            # choose one; admin dashboard login
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
       - key: OPENAI_EMBEDDING_MODEL
         value: text-embedding-3-small
-      - key: QDRANT_URL
-        sync: false
-      - key: QDRANT_API_KEY
-        sync: false
-      # --- Web search ---
-      - key: TAVILY_API_KEY
-        sync: false
-      # --- Database (Supabase session pooler string) ---
-      - key: DATABASE_URL
-        sync: false
-      # --- Admin dashboard (HTTP basic auth) ---
-      - key: ADMIN_USERNAME
-        sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
-      # --- CORS: the frontend origin ---
-      - key: CORS_ALLOWED_ORIGINS
-        value: https://snip-tool.onrender.com
+      - key: OPENROUTER_MAX_TOKENS
+        value: "16384"
 
-  # --------------------------------------------------------------------------
-  # Frontend: Next.js (Docker, frontend/Dockerfile)
-  # --------------------------------------------------------------------------
   - type: web
-    name: snip-tool
+    name: corinna-uniba
     runtime: docker
     rootDir: frontend
     dockerfilePath: ./Dockerfile
@@ -73,11 +44,7 @@ services:
     region: frankfurt
     plan: starter
     healthCheckPath: /
-    autoDeployTrigger: commit
     envVars:
-      # Baked into the JS bundle at build time (Dockerfile ARG of same name).
+      # Must match the backend URL shown in Render after creation.
       - key: NEXT_PUBLIC_API_URL
-        value: https://snip-tool-backend.onrender.com
-      # Optional shared access password for the whole UI (leave unset = open).
-      - key: APP_PASSWORD
-        sync: false
+        value: https://corinna-uniba-backend.onrender.com
