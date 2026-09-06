@@ -31,6 +31,11 @@ def create_llm(
             api_keys_from_config.get("OPENROUTER_API_KEY")
             or os.getenv("OPENROUTER_API_KEY")
         )
+        # Explicit output cap: without it OpenRouter forwards the provider's
+        # advertised maximum, which Novita/Google reject (HTTP 400).
+        kwargs.setdefault(
+            "max_tokens", int(os.getenv("OPENROUTER_MAX_TOKENS", "16384"))
+        )
         kwargs.setdefault("extra_body", {})
         kwargs["extra_body"].setdefault(
             "provider",
